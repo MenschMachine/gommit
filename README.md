@@ -39,7 +39,7 @@ go install github.com/MenschMachine/gommit@latest
 ./gommit --provider openai --model gpt-4o-mini
 
 # staged + unstaged
-./gommit -a --provider openai --model gpt-4o-mini
+./gommit -u --provider openai --model gpt-4o-mini
 
 # staged + unstaged + untracked
 ./gommit -A --provider openai --model gpt-4o-mini
@@ -47,18 +47,18 @@ go install github.com/MenschMachine/gommit@latest
 
 ## Flags
 
-- `-a`: include staged + unstaged
-- `-A`: include staged + unstaged + untracked
-- `--single`: force single-message mode even if diff is large
-- `--split`: force split-mode (multi-commit plan)
+- `-u`, `--include-unstaged`: include staged + unstaged
+- `-A`, `--include-all`: include staged + unstaged + untracked
+- `-s`, `--single`: force single-message mode even if diff is large
+- `-S`, `--split`: force split-mode (multi-commit plan)
 - `-f`, `--accept`: auto-accept proposed result (skips prompt)
-- `--provider`: `openai`, `openrouter`, `anthropic`
-- `--model`: model name (required unless set in config)
-- `--base-url`: OpenAI-compatible base URL
-- `--style`: `conventional` or `freeform`
-- `--config`: config file path
-- `--openrouter-referer`: set OpenRouter `HTTP-Referer` header
-- `--openrouter-title`: set OpenRouter `X-Title` header
+- `-p`, `--provider`: `openai`, `openrouter`, `anthropic`
+- `-m`, `--model`: model name (required unless set in config)
+- `-b`, `--base-url`: OpenAI-compatible base URL
+- `-t`, `--style`: `conventional` or `freeform`
+- `-c`, `--config`: config file path
+- `-r`, `--openrouter-referer`: set OpenRouter `HTTP-Referer` header
+- `-T`, `--openrouter-title`: set OpenRouter `X-Title` header
 
 ## Config
 
