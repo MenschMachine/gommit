@@ -27,6 +27,7 @@ go build -o gommit
 - `-A`: include staged + unstaged + untracked
 - `--single`: force single-message mode even if diff is large
 - `--split`: force split-mode (multi-commit plan)
+- `-f`, `--accept`: auto-accept proposed result (skips prompt)
 - `--provider`: `openai`, `openrouter`, `anthropic`
 - `--model`: model name (required unless set in config)
 - `--base-url`: OpenAI-compatible base URL

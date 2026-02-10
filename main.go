@@ -28,6 +28,7 @@ func main() {
 	var includeAll bool
 	var forceSingle bool
 	var forceSplit bool
+	var autoAccept bool
 	var providerFlag string
 	var modelFlag string
 	var baseURLFlag string
@@ -40,6 +41,8 @@ func main() {
 	flag.BoolVar(&includeAll, "A", false, "include staged + unstaged + untracked")
 	flag.BoolVar(&forceSingle, "single", false, "force single message even if diff is large")
 	flag.BoolVar(&forceSplit, "split", false, "force split-mode plan")
+	flag.BoolVar(&autoAccept, "f", false, "auto-accept proposed result")
+	flag.BoolVar(&autoAccept, "accept", false, "auto-accept proposed result")
 	flag.StringVar(&providerFlag, "provider", "", "llm provider (openai, openrouter, anthropic)")
 	flag.StringVar(&modelFlag, "model", "", "model name")
 	flag.StringVar(&baseURLFlag, "base-url", "", "base url for openai-compatible api")
@@ -144,6 +147,9 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 
 	splitMode := forceSplit || (!forceSingle && result.TotalOriginalLen > cfg.SplitThreshold)
+	if autoAccept && !forceSplit {
+		splitMode = false
+	}
 	if splitMode {
 		splitPrompt := prompt.BuildSplitPrompt(cfg.Style, scopeLabel, result.Diff, result.Binary, result.TruncatedFiles)
 		planText, err := client.ChatCompletion(ctx, prompt.SystemPrompt(), splitPrompt)
@@ -154,6 +160,9 @@ func main() {
 		fmt.Println("---")
 		fmt.Println(planText)
 		fmt.Println("---")
+		if autoAccept && forceSplit {
+			return
+		}
 		choice, err := ui.PromptChoice(reader, os.Stdout, "Split-mode options", map[rune]string{
 			'a': "accept plan and exit",
 			'f': "force single commit message",
@@ -182,6 +191,17 @@ func main() {
 		fmt.Println("---")
 		fmt.Println(message)
 		fmt.Println("---")
+
+		if autoAccept {
+			if strings.TrimSpace(message) == "" {
+				fatal("empty commit message")
+			}
+			if err := commitMessage(root, message, scope); err != nil {
+				fatal(err.Error())
+			}
+			fmt.Println("Commit created.")
+			return
+		}
 
 		choice, err := ui.PromptChoice(reader, os.Stdout, "Choose action", map[rune]string{
 			'a': "accept",
