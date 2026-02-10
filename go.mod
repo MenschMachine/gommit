@@ -1,4 +1,4 @@
-module gommit
+module github.com/MenschMachine/gommit
 
 go 1.24.5
 

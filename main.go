@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gommit/internal/config"
-	"gommit/internal/git"
-	"gommit/internal/llm"
-	"gommit/internal/prompt"
-	"gommit/internal/ui"
+	"github.com/MenschMachine/gommit/internal/config"
+	"github.com/MenschMachine/gommit/internal/git"
+	"github.com/MenschMachine/gommit/internal/llm"
+	"github.com/MenschMachine/gommit/internal/prompt"
+	"github.com/MenschMachine/gommit/internal/ui"
 )
 
 const (

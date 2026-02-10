@@ -1,0 +1,45 @@
+version: 2
+
+project_name: gommit
+
+builds:
+  - id: gommit
+    main: ./main.go
+    binary: gommit
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+
+archives:
+  - id: tarball
+    builds:
+      - gommit
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+nfpms:
+  - id: deb
+    package_name: gommit
+    builds:
+      - gommit
+    formats:
+      - deb
+    maintainer: "MenschMachine"
+    description: "Generate git commit messages using an OpenAI-compatible LLM."
+    homepage: "https://github.com/MenschMachine/gommit"
+    bindir: /usr/bin
+
+release:
+  github:
+    owner: MenschMachine
+    name: gommit

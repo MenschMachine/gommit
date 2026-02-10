@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"gommit/internal/git"
+	"github.com/MenschMachine/gommit/internal/git"
 )
 
 func TestBuildSinglePromptIncludesMetadata(t *testing.T) {

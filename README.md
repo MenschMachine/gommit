@@ -4,8 +4,32 @@ Generate git commit messages using an OpenAI-compatible LLM.
 
 ## Install
 
+Linux (amd64) from GitHub Releases:
+
+1. Download the `gommit_*_linux_amd64.tar.gz` or `gommit_*_linux_amd64.deb` asset from the release page.
+2. For tar.gz:
+
+```bash
+tar -xzf gommit_*_linux_amd64.tar.gz
+sudo install -m 0755 gommit /usr/local/bin/gommit
+```
+
+3. For .deb:
+
+```bash
+sudo dpkg -i gommit_*_linux_amd64.deb
+```
+
+Build from source:
+
 ```bash
 go build -o gommit
+```
+
+Install with Go:
+
+```bash
+go install github.com/MenschMachine/gommit@latest
 ```
 
 ## Usage

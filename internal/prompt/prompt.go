@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"gommit/internal/git"
+	"github.com/MenschMachine/gommit/internal/git"
 )
 
 const systemPrompt = "You are a senior software engineer who writes precise git commit messages."
