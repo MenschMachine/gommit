@@ -1,0 +1,25 @@
+# Binaries
+/gommit
+/bin/
+/dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go build artifacts
+*.test
+*.out
+*.prof
+
+# Dependency directories
+/vendor/
+
+# Logs
+/logs/
+
+# OS / editor
+.DS_Store
+
+# Env
+.env
