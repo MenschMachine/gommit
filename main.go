@@ -205,7 +205,7 @@ func main() {
 			if strings.TrimSpace(message) == "" {
 				fatal("empty commit message after edit")
 			}
-			if err := commitMessage(root, message); err != nil {
+			if err := commitMessage(root, message, scope); err != nil {
 				fatal(err.Error())
 			}
 			fmt.Println("Commit created.")
@@ -214,7 +214,7 @@ func main() {
 			if strings.TrimSpace(message) == "" {
 				fatal("empty commit message")
 			}
-			if err := commitMessage(root, message); err != nil {
+			if err := commitMessage(root, message, scope); err != nil {
 				fatal(err.Error())
 			}
 			fmt.Println("Commit created.")
@@ -223,7 +223,7 @@ func main() {
 	}
 }
 
-func commitMessage(root, message string) error {
+func commitMessage(root, message string, scope git.DiffScope) error {
 	file, err := os.CreateTemp("", "gommit-commit-*.txt")
 	if err != nil {
 		return err
@@ -237,7 +237,29 @@ func commitMessage(root, message string) error {
 		return err
 	}
 
-	cmd := exec.Command("git", "commit", "-F", filepath.Clean(file.Name()))
+	var cmd *exec.Cmd
+	switch scope {
+	case git.ScopeStaged:
+		cmd = exec.Command("git", "commit", "-F", filepath.Clean(file.Name()))
+	case git.ScopeStagedUnstaged:
+		cmd = exec.Command("git", "commit", "-a", "-F", filepath.Clean(file.Name()))
+	case git.ScopeAll:
+		if err := runGitCmd(root, "add", "."); err != nil {
+			return err
+		}
+		cmd = exec.Command("git", "commit", "-a", "-F", filepath.Clean(file.Name()))
+	default:
+		cmd = exec.Command("git", "commit", "-F", filepath.Clean(file.Name()))
+	}
+	cmd.Dir = root
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	return cmd.Run()
+}
+
+func runGitCmd(root string, args ...string) error {
+	cmd := exec.Command("git", args...)
 	cmd.Dir = root
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
