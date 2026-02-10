@@ -39,6 +39,12 @@ func main() {
 
 	flag.Usage = func() {
 		out := flag.CommandLine.Output()
+		cfgDefaults := config.DefaultConfig()
+		cfgPath, err := config.DefaultConfigPath()
+		if err != nil {
+			cfgPath = "~/.config/gommit/config.toml"
+		}
+
 		fmt.Fprintln(out, "Usage: gommit [options]")
 		fmt.Fprintln(out, "")
 		fmt.Fprintln(out, "Options:")
@@ -47,11 +53,12 @@ func main() {
 		fmt.Fprintln(out, "  -s, --single             force single message even if diff is large")
 		fmt.Fprintln(out, "  -S, --split              force split-mode plan")
 		fmt.Fprintln(out, "  -f, --accept             auto-accept proposed result")
-		fmt.Fprintln(out, "  -p, --provider string    llm provider (openai, openrouter, anthropic)")
-		fmt.Fprintln(out, "  -m, --model string       model name")
+		fmt.Fprintf(out, "  -p, --provider string    llm provider (openai, openrouter, anthropic) (default: %s)\n", cfgDefaults.Provider)
+		fmt.Fprintln(out, "  -m, --model string       model name (required unless set in config/env)")
 		fmt.Fprintln(out, "  -b, --base-url string    base url for openai-compatible api")
-		fmt.Fprintln(out, "  -t, --style string       commit style (conventional or freeform)")
-		fmt.Fprintln(out, "  -c, --config string      path to config file")
+		fmt.Fprintf(out, "                           default: %s (openai), %s (openrouter)\n", config.DefaultBaseURL("openai"), config.DefaultBaseURL("openrouter"))
+		fmt.Fprintf(out, "  -t, --style string       commit style (conventional or freeform) (default: %s)\n", cfgDefaults.Style)
+		fmt.Fprintf(out, "  -c, --config string      path to config file (default: %s)\n", cfgPath)
 		fmt.Fprintln(out, "  -r, --openrouter-referer string  openrouter HTTP-Referer header")
 		fmt.Fprintln(out, "  -T, --openrouter-title string    openrouter X-Title header")
 	}
