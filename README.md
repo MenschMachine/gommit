@@ -98,3 +98,29 @@ Config overrides:
 - `GOMMIT_OPENROUTER_TITLE`
 - `OPENROUTER_REFERER`
 - `OPENROUTER_TITLE`
+
+## Release (Linux amd64 + .deb)
+
+Releases are built by GitHub Actions using GoReleaser on tag pushes.
+
+Release steps:
+
+1. Create a version tag and push it:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+2. Wait for the `release` workflow to finish.
+3. Download assets from the GitHub release page:
+
+- `gommit_*_linux_amd64.tar.gz`
+- `gommit_*_linux_amd64.deb`
+- `checksums.txt`
+
+Local dry run (optional):
+
+```bash
+goreleaser release --snapshot --clean
+```
