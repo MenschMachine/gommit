@@ -29,6 +29,8 @@ func main() {
 	var forceSingle bool
 	var forceSplit bool
 	var autoAccept bool
+	var dumpContext bool
+	var maxPromptCharsFlag int
 	var providerFlag string
 	var modelFlag string
 	var baseURLFlag string
@@ -53,6 +55,8 @@ func main() {
 		fmt.Fprintln(out, "  -s, --single             force single message even if diff is large")
 		fmt.Fprintln(out, "  -S, --split              force split-mode plan")
 		fmt.Fprintln(out, "  -f, --accept             auto-accept proposed result")
+		fmt.Fprintln(out, "  -d, --dump-context       print LLM request JSON and exit")
+		fmt.Fprintln(out, "      --max-prompt-chars   max chars for user prompt (0 = no limit)")
 		fmt.Fprintf(out, "  -p, --provider string    llm provider (openai, openrouter, anthropic) (default: %s)\n", cfgDefaults.Provider)
 		fmt.Fprintln(out, "  -m, --model string       model name (required unless set in config/env)")
 		fmt.Fprintln(out, "  -b, --base-url string    base url for openai-compatible api")
@@ -73,6 +77,9 @@ func main() {
 	flag.BoolVar(&forceSplit, "split", false, "force split-mode plan")
 	flag.BoolVar(&autoAccept, "f", false, "auto-accept proposed result")
 	flag.BoolVar(&autoAccept, "accept", false, "auto-accept proposed result")
+	flag.BoolVar(&dumpContext, "d", false, "print LLM request JSON and exit")
+	flag.BoolVar(&dumpContext, "dump-context", false, "print LLM request JSON and exit")
+	flag.IntVar(&maxPromptCharsFlag, "max-prompt-chars", -1, "max chars for user prompt (0 = no limit)")
 	flag.StringVar(&providerFlag, "p", "", "llm provider (openai, openrouter, anthropic)")
 	flag.StringVar(&providerFlag, "provider", "", "llm provider (openai, openrouter, anthropic)")
 	flag.StringVar(&modelFlag, "m", "", "model name")
@@ -119,6 +126,9 @@ func main() {
 	}
 	if styleFlag != "" {
 		cfg.Style = styleFlag
+	}
+	if maxPromptCharsFlag >= 0 {
+		cfg.MaxPromptChars = maxPromptCharsFlag
 	}
 	if openRouterRefFlag != "" {
 		cfg.OpenRouterRef = openRouterRefFlag
@@ -188,7 +198,11 @@ func main() {
 		splitMode = false
 	}
 	if splitMode {
-		splitPrompt := prompt.BuildSplitPrompt(cfg.Style, scopeLabel, result.Diff, result.Binary, result.TruncatedFiles)
+		splitPrompt := prompt.BuildSplitPromptWithMax(cfg.Style, scopeLabel, result.Diff, result.Binary, result.TruncatedFiles, cfg.MaxPromptChars)
+		if dumpContext {
+			dumpLLMContext(client, prompt.SystemPrompt(), splitPrompt)
+			return
+		}
 		planText, err := client.ChatCompletion(ctx, prompt.SystemPrompt(), splitPrompt)
 		if err != nil {
 			fatal(err.Error())
@@ -219,7 +233,11 @@ func main() {
 	}
 
 	for {
-		singlePrompt := prompt.BuildSinglePrompt(cfg.Style, scopeLabel, result.Diff, result.Binary, result.TruncatedFiles)
+		singlePrompt := prompt.BuildSinglePromptWithMax(cfg.Style, scopeLabel, result.Diff, result.Binary, result.TruncatedFiles, cfg.MaxPromptChars)
+		if dumpContext {
+			dumpLLMContext(client, prompt.SystemPrompt(), singlePrompt)
+			return
+		}
 		message, err := client.ChatCompletion(ctx, prompt.SystemPrompt(), singlePrompt)
 		if err != nil {
 			fatal(err.Error())
@@ -322,6 +340,14 @@ func runGitCmd(root string, args ...string) error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	return cmd.Run()
+}
+
+func dumpLLMContext(client *llm.Client, systemPrompt, userPrompt string) {
+	payload, err := client.BuildChatPayload(systemPrompt, userPrompt)
+	if err != nil {
+		fatal(err.Error())
+	}
+	fmt.Println(string(payload))
 }
 
 func fatal(msg string) {

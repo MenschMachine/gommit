@@ -189,6 +189,10 @@ func processDiff(diff string, perFileLimit int) (string, int, []string) {
 	return strings.Join(kept, "\n"), totalOriginal, truncated
 }
 
+func SplitDiffChunks(diff string) []string {
+	return splitDiffChunks(diff)
+}
+
 func splitDiffChunks(diff string) []string {
 	if strings.HasPrefix(diff, "diff --git ") {
 		parts := strings.Split(diff, "\ndiff --git ")
@@ -203,6 +207,10 @@ func splitDiffChunks(diff string) []string {
 		return chunks
 	}
 	return []string{diff}
+}
+
+func ParseDiffPath(chunk string) string {
+	return parseDiffPath(chunk)
 }
 
 func parseDiffPath(chunk string) string {

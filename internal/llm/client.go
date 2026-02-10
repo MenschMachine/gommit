@@ -47,8 +47,8 @@ type chatResponse struct {
 	} `json:"choices"`
 }
 
-func (c *Client) ChatCompletion(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
-	payload := chatRequest{
+func (c *Client) buildChatRequest(systemPrompt, userPrompt string) chatRequest {
+	return chatRequest{
 		Model: c.Model,
 		Messages: []chatMessage{
 			{Role: "system", Content: systemPrompt},
@@ -56,6 +56,15 @@ func (c *Client) ChatCompletion(ctx context.Context, systemPrompt, userPrompt st
 		},
 		Temperature: 0.2,
 	}
+}
+
+func (c *Client) BuildChatPayload(systemPrompt, userPrompt string) ([]byte, error) {
+	payload := c.buildChatRequest(systemPrompt, userPrompt)
+	return json.MarshalIndent(payload, "", "  ")
+}
+
+func (c *Client) ChatCompletion(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+	payload := c.buildChatRequest(systemPrompt, userPrompt)
 	buf, err := json.Marshal(payload)
 	if err != nil {
 		return "", err
