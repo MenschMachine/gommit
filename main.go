@@ -174,7 +174,9 @@ func main() {
 		scopeLabel = scopeStagedUnstaged
 	}
 
+	diffSpinner := ui.StartSpinner(os.Stderr, "Collecting diff")
 	result, err := git.CollectDiff(root, scope, cfg.PerFileLimit)
+	diffSpinner.Stop()
 	if err != nil {
 		fatal(err.Error())
 	}
@@ -206,7 +208,9 @@ func main() {
 			dumpLLMContext(client, prompt.SystemPrompt(), splitPrompt)
 			return
 		}
+		planSpinner := ui.StartSpinner(os.Stderr, "Generating split plan")
 		planText, err := client.ChatCompletion(ctx, prompt.SystemPrompt(), splitPrompt)
+		planSpinner.Stop()
 		if err != nil {
 			fatal(err.Error())
 		}
@@ -262,7 +266,9 @@ func main() {
 			dumpLLMContext(client, prompt.SystemPrompt(), singlePrompt)
 			return
 		}
+		msgSpinner := ui.StartSpinner(os.Stderr, "Generating commit message")
 		message, err := client.ChatCompletion(ctx, prompt.SystemPrompt(), singlePrompt)
+		msgSpinner.Stop()
 		if err != nil {
 			fatal(err.Error())
 		}
