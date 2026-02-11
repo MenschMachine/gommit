@@ -62,6 +62,10 @@ go install github.com/MenschMachine/gommit@latest
 - `-r`, `--openrouter-referer`: set OpenRouter `HTTP-Referer` header
 - `-T`, `--openrouter-title`: set OpenRouter `X-Title` header
 
+Split-mode notes:
+
+- When you accept a split plan, gommit auto-stages the listed files and creates each commit.
+
 ## Config
 
 Default config path: `~/.config/gommit/config.toml`

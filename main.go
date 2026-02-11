@@ -3,11 +3,13 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/MenschMachine/gommit/internal/config"
@@ -179,6 +181,7 @@ func main() {
 	if strings.TrimSpace(result.Diff) == "" && len(result.Binary) == 0 {
 		fatal("no changes found for selected diff scope")
 	}
+	changedFiles := changedFilesFromResult(result)
 
 	headers := map[string]string{}
 	if provider == "openrouter" {
@@ -207,23 +210,44 @@ func main() {
 		if err != nil {
 			fatal(err.Error())
 		}
+		plan, planErr := parseSplitPlan(planText)
 		fmt.Println("Proposed commit plan:")
 		fmt.Println("---")
-		fmt.Println(planText)
-		fmt.Println("---")
+		if planErr != nil {
+			fmt.Println(planText)
+			fmt.Println("---")
+			fmt.Fprintf(os.Stderr, "gommit: unable to parse split plan JSON: %s\n", planErr.Error())
+		} else {
+			fmt.Println(formatSplitPlan(plan))
+			fmt.Println("---")
+		}
 		if autoAccept && forceSplit {
+			if planErr != nil {
+				fatal(planErr.Error())
+			}
+			if err := applySplitPlan(root, scope, plan, changedFiles); err != nil {
+				fatal(err.Error())
+			}
+			fmt.Println("Split commits created.")
 			return
 		}
-		choice, err := ui.PromptChoice(reader, os.Stdout, "Split-mode options", map[rune]string{
-			'a': "accept plan and exit",
+		options := map[rune]string{
 			'f': "force single commit message",
 			'c': "cancel",
-		})
+		}
+		if planErr == nil {
+			options['a'] = "accept plan and commit"
+		}
+		choice, err := ui.PromptChoice(reader, os.Stdout, "Split-mode options", options)
 		if err != nil {
 			fatal(err.Error())
 		}
 		switch choice {
 		case 'a':
+			if err := applySplitPlan(root, scope, plan, changedFiles); err != nil {
+				fatal(err.Error())
+			}
+			fmt.Println("Split commits created.")
 			return
 		case 'c':
 			return
@@ -298,6 +322,16 @@ func main() {
 	}
 }
 
+type splitPlan struct {
+	Commits []splitCommit `json:"commits"`
+}
+
+type splitCommit struct {
+	Message   string   `json:"message"`
+	Rationale string   `json:"rationale"`
+	Files     []string `json:"files"`
+}
+
 func commitMessage(root, message string, scope git.DiffScope) error {
 	file, err := os.CreateTemp("", "gommit-commit-*.txt")
 	if err != nil {
@@ -340,6 +374,238 @@ func runGitCmd(root string, args ...string) error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	return cmd.Run()
+}
+
+func runGitOutput(root string, args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = root
+	out, err := cmd.Output()
+	if err == nil {
+		return string(out), nil
+	}
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		return "", fmt.Errorf("git %s failed: %s", strings.Join(args, " "), strings.TrimSpace(string(exitErr.Stderr)))
+	}
+	return "", err
+}
+
+func parseSplitPlan(text string) (splitPlan, error) {
+	raw := strings.TrimSpace(text)
+	if raw == "" {
+		return splitPlan{}, fmt.Errorf("empty split plan")
+	}
+
+	var plan splitPlan
+	if err := json.Unmarshal([]byte(raw), &plan); err == nil {
+		return plan, nil
+	}
+
+	var commits []splitCommit
+	if err := json.Unmarshal([]byte(raw), &commits); err == nil {
+		return splitPlan{Commits: commits}, nil
+	}
+
+	start := strings.Index(raw, "{")
+	end := strings.LastIndex(raw, "}")
+	if start >= 0 && end > start {
+		if err := json.Unmarshal([]byte(raw[start:end+1]), &plan); err == nil {
+			return plan, nil
+		}
+	}
+	start = strings.Index(raw, "[")
+	end = strings.LastIndex(raw, "]")
+	if start >= 0 && end > start {
+		if err := json.Unmarshal([]byte(raw[start:end+1]), &commits); err == nil {
+			return splitPlan{Commits: commits}, nil
+		}
+	}
+
+	return splitPlan{}, fmt.Errorf("invalid JSON split plan")
+}
+
+func applySplitPlan(root string, scope git.DiffScope, plan splitPlan, changedFiles []string) error {
+	if len(plan.Commits) == 0 {
+		return fmt.Errorf("split plan has no commits")
+	}
+
+	expected := map[string]struct{}{}
+	for _, file := range changedFiles {
+		expected[file] = struct{}{}
+	}
+
+	seen := map[string]struct{}{}
+	for i, commit := range plan.Commits {
+		msg := strings.TrimSpace(commit.Message)
+		if msg == "" {
+			return fmt.Errorf("commit %d missing message", i+1)
+		}
+		if len(commit.Files) == 0 {
+			return fmt.Errorf("commit %d has no files", i+1)
+		}
+		for _, file := range commit.Files {
+			cleaned, err := sanitizePlanFile(file)
+			if err != nil {
+				return fmt.Errorf("commit %d has invalid file %q: %w", i+1, file, err)
+			}
+			if _, ok := expected[cleaned]; !ok {
+				return fmt.Errorf("commit %d references unknown file %q", i+1, cleaned)
+			}
+			if _, ok := seen[cleaned]; ok {
+				return fmt.Errorf("file %q appears in multiple commits", cleaned)
+			}
+			seen[cleaned] = struct{}{}
+		}
+	}
+
+	if len(seen) != len(expected) {
+		var missing []string
+		for file := range expected {
+			if _, ok := seen[file]; !ok {
+				missing = append(missing, file)
+			}
+		}
+		sort.Strings(missing)
+		return fmt.Errorf("split plan missing files: %s", strings.Join(missing, ", "))
+	}
+
+	if scope == git.ScopeStaged {
+		dirty, err := hasUnstagedChanges(root)
+		if err != nil {
+			return err
+		}
+		if dirty {
+			return fmt.Errorf("unstaged changes detected; staged-only split commits require a clean working tree")
+		}
+	}
+
+	for i, commit := range plan.Commits {
+		fmt.Printf("Creating commit %d/%d: %s\n", i+1, len(plan.Commits), strings.TrimSpace(commit.Message))
+		if err := runGitCmd(root, "reset", "-q"); err != nil {
+			return err
+		}
+		files, err := sanitizePlanFiles(commit.Files)
+		if err != nil {
+			return err
+		}
+		if err := stageFiles(root, files); err != nil {
+			return err
+		}
+		if err := commitMessage(root, commit.Message, git.ScopeStaged); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func formatSplitPlan(plan splitPlan) string {
+	var b strings.Builder
+	for i, commit := range plan.Commits {
+		if i > 0 {
+			b.WriteString("\n")
+		}
+		message := strings.TrimSpace(commit.Message)
+		if message == "" {
+			message = "(no message)"
+		}
+		b.WriteString(fmt.Sprintf("%d. %s\n", i+1, message))
+		rationale := strings.TrimSpace(commit.Rationale)
+		if rationale != "" {
+			b.WriteString("Rationale: " + rationale + "\n")
+		}
+		if len(commit.Files) > 0 {
+			files := make([]string, 0, len(commit.Files))
+			for _, file := range commit.Files {
+				file = strings.TrimSpace(file)
+				if file == "" {
+					continue
+				}
+				files = append(files, file)
+			}
+			if len(files) > 0 {
+				b.WriteString("Files: " + strings.Join(files, ", ") + "\n")
+			}
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func sanitizePlanFiles(files []string) ([]string, error) {
+	out := make([]string, 0, len(files))
+	for _, file := range files {
+		cleaned, err := sanitizePlanFile(file)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, cleaned)
+	}
+	return out, nil
+}
+
+func sanitizePlanFile(path string) (string, error) {
+	cleaned := strings.TrimSpace(path)
+	if cleaned == "" {
+		return "", fmt.Errorf("empty path")
+	}
+	cleaned = strings.TrimPrefix(cleaned, "a/")
+	cleaned = strings.TrimPrefix(cleaned, "b/")
+	cleaned = strings.TrimPrefix(cleaned, "./")
+	cleaned = filepath.Clean(cleaned)
+	if cleaned == "." || strings.HasPrefix(cleaned, "..") || filepath.IsAbs(cleaned) {
+		return "", fmt.Errorf("invalid path")
+	}
+	return cleaned, nil
+}
+
+func stageFiles(root string, files []string) error {
+	args := append([]string{"add", "--"}, files...)
+	return runGitCmd(root, args...)
+}
+
+func hasUnstagedChanges(root string) (bool, error) {
+	out, err := runGitOutput(root, "status", "--porcelain")
+	if err != nil {
+		return false, err
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if len(line) < 2 {
+			continue
+		}
+		if line[1] != ' ' {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func changedFilesFromResult(result git.DiffResult) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	for _, chunk := range git.SplitDiffChunks(result.Diff) {
+		path := strings.TrimSpace(git.ParseDiffPath(chunk))
+		if path == "" {
+			continue
+		}
+		path = filepath.Clean(path)
+		if _, ok := seen[path]; ok {
+			continue
+		}
+		seen[path] = struct{}{}
+		out = append(out, path)
+	}
+	for _, bf := range result.Binary {
+		path := strings.TrimSpace(bf.Path)
+		if path == "" {
+			continue
+		}
+		path = filepath.Clean(path)
+		if _, ok := seen[path]; ok {
+			continue
+		}
+		seen[path] = struct{}{}
+		out = append(out, path)
+	}
+	return out
 }
 
 func dumpLLMContext(client *llm.Client, systemPrompt, userPrompt string) {

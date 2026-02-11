@@ -73,9 +73,12 @@ func BuildSplitPrompt(style string, scope string, diff string, binaries []git.Bi
 		b.WriteString("Use concise commit messages with summary line and optional body.\n")
 	}
 
-	b.WriteString("Return a plan with:\n")
-	b.WriteString("1) Total number of commits\n")
-	b.WriteString("2) For each commit: message, short rationale, and affected files or areas\n")
+	b.WriteString("Return ONLY JSON with this shape:\n")
+	b.WriteString("{\"commits\":[{\"message\":\"...\",\"rationale\":\"...\",\"files\":[\"path\",...]}, ...]}\n")
+	b.WriteString("Rules:\n")
+	b.WriteString("- Include every changed file listed below.\n")
+	b.WriteString("- Each file must appear in exactly one commit.\n")
+	b.WriteString("- Do not invent paths.\n")
 
 	if len(truncated) > 0 {
 		sort.Strings(truncated)
@@ -97,9 +100,17 @@ func BuildSplitPrompt(style string, scope string, diff string, binaries []git.Bi
 		}
 	}
 
+	files := collectFiles(parseDiffChunks(diff), binaries)
+	if len(files) > 0 {
+		b.WriteString("\nFiles changed (all):\n")
+		for _, file := range files {
+			b.WriteString("- " + file + "\n")
+		}
+	}
+
 	b.WriteString("\nDiff:\n")
 	b.WriteString(diff)
-	b.WriteString("\n\nReturn only the plan, no code fences or extra commentary.")
+	b.WriteString("\n\nReturn ONLY JSON, no code fences or extra commentary.")
 	return b.String()
 }
 
@@ -142,9 +153,12 @@ func buildPromptWithMax(split bool, style string, scope string, diff string, bin
 	b.WriteString("\nNote: diff detail may be reduced to fit max_prompt_chars.\n")
 
 	if split {
-		b.WriteString("Return a plan with:\n")
-		b.WriteString("1) Total number of commits\n")
-		b.WriteString("2) For each commit: message, short rationale, and affected files or areas\n")
+		b.WriteString("Return ONLY JSON with this shape:\n")
+		b.WriteString("{\"commits\":[{\"message\":\"...\",\"rationale\":\"...\",\"files\":[\"path\",...]}, ...]}\n")
+		b.WriteString("Rules:\n")
+		b.WriteString("- Include every changed file listed below.\n")
+		b.WriteString("- Each file must appear in exactly one commit.\n")
+		b.WriteString("- Do not invent paths.\n")
 	}
 
 	if len(truncated) > 0 {
@@ -179,7 +193,7 @@ func buildPromptWithMax(split bool, style string, scope string, diff string, bin
 	b.WriteString("\nDiff:\n")
 	preamble := b.String()
 
-	suffix := "\n\nReturn only the plan, no code fences or extra commentary."
+	suffix := "\n\nReturn ONLY JSON, no code fences or extra commentary."
 	if !split {
 		suffix = "\n\nReturn only the commit message, no code fences or extra commentary."
 	}
@@ -217,19 +231,11 @@ func parseDiffChunks(diff string) []diffChunk {
 func collectFiles(chunks []diffChunk, binaries []git.BinaryFile) []string {
 	seen := map[string]struct{}{}
 	var out []string
-	binarySet := map[string]struct{}{}
-	for _, bf := range binaries {
-		binarySet[bf.Path] = struct{}{}
-	}
 	for _, chunk := range chunks {
 		if _, ok := seen[chunk.Path]; ok {
 			continue
 		}
 		seen[chunk.Path] = struct{}{}
-		if _, isBinary := binarySet[chunk.Path]; isBinary {
-			out = append(out, chunk.Path+" (binary)")
-			continue
-		}
 		out = append(out, chunk.Path)
 	}
 	for _, bf := range binaries {
@@ -237,7 +243,7 @@ func collectFiles(chunks []diffChunk, binaries []git.BinaryFile) []string {
 			continue
 		}
 		seen[bf.Path] = struct{}{}
-		out = append(out, bf.Path+" (binary)")
+		out = append(out, bf.Path)
 	}
 	return out
 }

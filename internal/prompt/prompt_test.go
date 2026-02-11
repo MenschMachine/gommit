@@ -27,7 +27,7 @@ func TestBuildSplitPromptIncludesPlanInstructions(t *testing.T) {
 	if !strings.Contains(promptText, "multi-commit plan") {
 		t.Fatalf("expected split-mode instructions")
 	}
-	if !strings.Contains(promptText, "Total number of commits") {
-		t.Fatalf("expected plan outline")
+	if !strings.Contains(promptText, "Return ONLY JSON") {
+		t.Fatalf("expected JSON instructions")
 	}
 }
