@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"flag"
@@ -196,7 +195,6 @@ func main() {
 	}
 	client := llm.NewClient(cfg.BaseURL, apiKey, cfg.Model, headers)
 	ctx := context.Background()
-	reader := bufio.NewReader(os.Stdin)
 
 	splitMode := forceSplit || (!forceSingle && result.TotalOriginalLen > cfg.SplitThreshold)
 	if autoAccept && !forceSplit {
@@ -225,6 +223,10 @@ func main() {
 			fmt.Println(formatSplitPlan(plan))
 			fmt.Println("---")
 		}
+
+		ui.DisplayFileBox(os.Stdout, changedFiles, 5)
+		fmt.Println()
+
 		if autoAccept && forceSplit {
 			if planErr != nil {
 				fatal(planErr.Error())
@@ -235,27 +237,26 @@ func main() {
 			fmt.Println("Split commits created.")
 			return
 		}
-		options := map[rune]string{
-			'f': "force single commit message",
-			'c': "cancel",
-		}
+		optionsList := []string{}
 		if planErr == nil {
-			options['a'] = "accept plan and commit"
+			optionsList = append(optionsList, "Accept plan and commit")
 		}
-		choice, err := ui.PromptChoice(reader, os.Stdout, "Split-mode options", options)
+		optionsList = append(optionsList, "Force single commit message", "Cancel")
+
+		action, err := ui.SelectOption("What would you like to do?", optionsList)
 		if err != nil {
 			fatal(err.Error())
 		}
-		switch choice {
-		case 'a':
+		switch action {
+		case "Accept plan and commit":
 			if err := applySplitPlan(root, scope, plan, changedFiles); err != nil {
 				fatal(err.Error())
 			}
 			fmt.Println("Split commits created.")
 			return
-		case 'c':
+		case "Cancel":
 			return
-		case 'f':
+		case "Force single commit message":
 			// continue to single-message flow
 		}
 	}
@@ -277,6 +278,9 @@ func main() {
 		fmt.Println(message)
 		fmt.Println("---")
 
+		ui.DisplayFileBox(os.Stdout, changedFiles, 5)
+		fmt.Println()
+
 		if autoAccept {
 			if strings.TrimSpace(message) == "" {
 				fatal("empty commit message")
@@ -288,21 +292,19 @@ func main() {
 			return
 		}
 
-		choice, err := ui.PromptChoice(reader, os.Stdout, "Choose action", map[rune]string{
-			'a': "accept",
-			'e': "edit",
-			'r': "retry",
-			'c': "cancel",
-		})
+		action, err := ui.SelectOption(
+			"What would you like to do with this commit message?",
+			[]string{"Accept", "Edit in editor", "Retry generation", "Cancel"},
+		)
 		if err != nil {
 			fatal(err.Error())
 		}
-		switch choice {
-		case 'c':
+		switch action {
+		case "Cancel":
 			return
-		case 'r':
+		case "Retry generation":
 			continue
-		case 'e':
+		case "Edit in editor":
 			message, err = ui.EditInEditor(message)
 			if err != nil {
 				fatal(err.Error())
@@ -315,7 +317,7 @@ func main() {
 			}
 			fmt.Println("Commit created.")
 			return
-		case 'a':
+		case "Accept":
 			if strings.TrimSpace(message) == "" {
 				fatal("empty commit message")
 			}
