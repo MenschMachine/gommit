@@ -261,8 +261,15 @@ func main() {
 		}
 	}
 
+	var refinementHint string
 	for {
 		singlePrompt := prompt.BuildSinglePromptWithMax(cfg.Style, scopeLabel, result.Diff, result.Binary, result.TruncatedFiles, cfg.MaxPromptChars)
+
+		// Append refinement hint if provided
+		if refinementHint != "" {
+			singlePrompt += "\n\nAdditional guidance: " + refinementHint
+		}
+
 		if dumpContext {
 			dumpLLMContext(client, prompt.SystemPrompt(), singlePrompt)
 			return
@@ -273,6 +280,9 @@ func main() {
 		if err != nil {
 			fatal(err.Error())
 		}
+
+		// Clear refinement hint after use
+		refinementHint = ""
 		fmt.Println("Proposed commit message:")
 		fmt.Println("---")
 		fmt.Println(message)
@@ -303,6 +313,14 @@ func main() {
 		case "Cancel":
 			return
 		case "Retry generation":
+			hint, err := ui.PromptInput(
+				"Refinement hint (optional, press Enter to skip)",
+				"e.g., make it shorter, focus on bug fix, etc.",
+			)
+			if err != nil {
+				fatal(err.Error())
+			}
+			refinementHint = strings.TrimSpace(hint)
 			continue
 		case "Edit in editor":
 			message, err = ui.EditInEditor(message)

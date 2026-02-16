@@ -19,3 +19,16 @@ func SelectOption(prompt string, options []string) (string, error) {
 
 	return selected, err
 }
+
+// PromptInput presents an interactive text input
+func PromptInput(prompt, placeholder string) (string, error) {
+	var input string
+
+	err := huh.NewInput().
+		Title(prompt).
+		Placeholder(placeholder).
+		Value(&input).
+		Run()
+
+	return input, err
+}
