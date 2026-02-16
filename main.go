@@ -18,6 +18,8 @@ import (
 	"github.com/MenschMachine/gommit/internal/ui"
 )
 
+var version = "dev"
+
 const (
 	scopeStaged           = "staged only"
 	scopeStagedUnstaged   = "staged + unstaged"
@@ -31,6 +33,7 @@ func main() {
 	var forceSplit bool
 	var autoAccept bool
 	var dumpContext bool
+	var showVersion bool
 	var maxPromptCharsFlag int
 	var providerFlag string
 	var modelFlag string
@@ -51,6 +54,7 @@ func main() {
 		fmt.Fprintln(out, "Usage: gommit [options]")
 		fmt.Fprintln(out, "")
 		fmt.Fprintln(out, "Options:")
+		fmt.Fprintln(out, "  --version                show version and exit")
 		fmt.Fprintln(out, "  -u, --include-unstaged   include staged + unstaged")
 		fmt.Fprintln(out, "  -A, --include-all        include staged + unstaged + untracked")
 		fmt.Fprintln(out, "  -s, --single             force single message even if diff is large")
@@ -80,6 +84,7 @@ func main() {
 	flag.BoolVar(&autoAccept, "accept", false, "auto-accept proposed result")
 	flag.BoolVar(&dumpContext, "d", false, "print LLM request JSON and exit")
 	flag.BoolVar(&dumpContext, "dump-context", false, "print LLM request JSON and exit")
+	flag.BoolVar(&showVersion, "version", false, "show version and exit")
 	flag.IntVar(&maxPromptCharsFlag, "max-prompt-chars", -1, "max chars for user prompt (0 = no limit)")
 	flag.StringVar(&providerFlag, "p", "", "llm provider (openai, openrouter, anthropic)")
 	flag.StringVar(&providerFlag, "provider", "", "llm provider (openai, openrouter, anthropic)")
@@ -96,6 +101,11 @@ func main() {
 	flag.StringVar(&openRouterTitleFlag, "T", "", "openrouter X-Title header")
 	flag.StringVar(&openRouterTitleFlag, "openrouter-title", "", "openrouter X-Title header")
 	flag.Parse()
+
+	if showVersion {
+		fmt.Println("gommit", version)
+		return
+	}
 
 	if forceSingle && forceSplit {
 		fatal("--single and --split cannot be used together")
