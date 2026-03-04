@@ -11,7 +11,8 @@ func TestAppendTag(t *testing.T) {
 		{"feat: add login", "", "feat: add login"},
 		{"feat: add login", "skip ci", "feat: add login [skip ci]"},
 		{"feat: add login\n", "skip ci", "feat: add login [skip ci]"},
-		{"feat: add login\n\nbody text", "WIP", "feat: add login\n\nbody text [WIP]"},
+		{"feat: add login\n\nbody text", "skip ci", "feat: add login [skip ci]\n\nbody text"},
+		{"feat: add login\n\nline1\nline2", "WIP", "feat: add login [WIP]\n\nline1\nline2"},
 	}
 	for _, tt := range tests {
 		got := appendTag(tt.message, tt.tag)

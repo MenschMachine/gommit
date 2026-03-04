@@ -228,6 +228,7 @@ func main() {
 
 		// Clear refinement hint after use
 		refinementHint = ""
+		message = appendTag(message, tagFlag)
 		fmt.Println("Proposed commit message:")
 		fmt.Println("---")
 		fmt.Println(message)
@@ -240,7 +241,7 @@ func main() {
 			if strings.TrimSpace(message) == "" {
 				fatal("empty commit message")
 			}
-			if err := commitMessage(root, appendTag(message, tagFlag), scope); err != nil {
+			if err := commitMessage(root, message, scope); err != nil {
 				fatal(err.Error())
 			}
 			fmt.Println("Commit created.")
@@ -275,7 +276,7 @@ func main() {
 			if strings.TrimSpace(message) == "" {
 				fatal("empty commit message after edit")
 			}
-			if err := commitMessage(root, appendTag(message, tagFlag), scope); err != nil {
+			if err := commitMessage(root, message, scope); err != nil {
 				fatal(err.Error())
 			}
 			fmt.Println("Commit created.")
@@ -284,7 +285,7 @@ func main() {
 			if strings.TrimSpace(message) == "" {
 				fatal("empty commit message")
 			}
-			if err := commitMessage(root, appendTag(message, tagFlag), scope); err != nil {
+			if err := commitMessage(root, message, scope); err != nil {
 				fatal(err.Error())
 			}
 			fmt.Println("Commit created.")
@@ -297,7 +298,12 @@ func appendTag(message, tag string) string {
 	if tag == "" {
 		return message
 	}
-	return strings.TrimRight(message, "\n") + " [" + tag + "]"
+	subject, body, hasBody := strings.Cut(strings.TrimRight(message, "\n"), "\n")
+	subject = strings.TrimRight(subject, " ") + " [" + tag + "]"
+	if hasBody {
+		return subject + "\n" + body
+	}
+	return subject
 }
 
 func commitMessage(root, message string, scope git.DiffScope) error {
