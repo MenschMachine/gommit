@@ -16,7 +16,6 @@ type Config struct {
 	Model           string `toml:"model"`
 	BaseURL         string `toml:"base_url"`
 	Style           string `toml:"style"`
-	SplitThreshold  int    `toml:"split_threshold"`
 	PerFileLimit    int    `toml:"per_file_limit"`
 	MaxPromptChars  int    `toml:"max_prompt_chars"`
 	OpenRouterRef   string `toml:"openrouter_referer"`
@@ -29,7 +28,6 @@ func DefaultConfig() Config {
 		Model:           "",
 		BaseURL:         "",
 		Style:           "conventional",
-		SplitThreshold:  200000,
 		PerFileLimit:    20000,
 		MaxPromptChars:  0,
 		OpenRouterRef:   "",
@@ -71,7 +69,6 @@ func ApplyEnvOverrides(cfg *Config) {
 	setStringEnv(&cfg.Model, "GOMMIT_MODEL")
 	setStringEnv(&cfg.BaseURL, "GOMMIT_BASE_URL")
 	setStringEnv(&cfg.Style, "GOMMIT_STYLE")
-	setIntEnv(&cfg.SplitThreshold, "GOMMIT_SPLIT_THRESHOLD")
 	setIntEnv(&cfg.PerFileLimit, "GOMMIT_PER_FILE_LIMIT")
 	setIntEnv(&cfg.MaxPromptChars, "GOMMIT_MAX_PROMPT_CHARS")
 	setStringEnv(&cfg.OpenRouterRef, "GOMMIT_OPENROUTER_REFERER")

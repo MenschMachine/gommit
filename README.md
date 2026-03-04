@@ -49,8 +49,8 @@ go install github.com/MenschMachine/gommit@latest
 
 - `-u`, `--include-unstaged`: include staged + unstaged
 - `-A`, `--include-all`: include staged + unstaged + untracked
-- `-s`, `--single`: force single-message mode even if diff is large
-- `-S`, `--split`: force split-mode (multi-commit plan)
+- `-t`, `--tag`: append `[STRING]` to the commit message
+- `-s`, `--skip-ci`: shortcut for `--tag "skip ci"`
 - `-f`, `--accept`: auto-accept proposed result (skips prompt)
 - `-d`, `--dump-context`: print LLM request JSON and exit
 - `--max-prompt-chars`: max chars for user prompt (0 = no limit)
@@ -61,10 +61,6 @@ go install github.com/MenschMachine/gommit@latest
 - `-c`, `--config`: config file path
 - `-r`, `--openrouter-referer`: set OpenRouter `HTTP-Referer` header
 - `-T`, `--openrouter-title`: set OpenRouter `X-Title` header
-
-Split-mode notes:
-
-- When you accept a split plan, gommit auto-stages the listed files and creates each commit.
 
 ## Config
 
@@ -77,7 +73,6 @@ provider = "openai"
 model = "gpt-4o-mini"
 base_url = "https://api.openai.com/v1"
 style = "conventional"
-split_threshold = 200000
 per_file_limit = 20000
 max_prompt_chars = 0
 openrouter_referer = "https://example.com"
@@ -99,7 +94,6 @@ Config overrides:
 - `GOMMIT_MODEL`
 - `GOMMIT_BASE_URL`
 - `GOMMIT_STYLE`
-- `GOMMIT_SPLIT_THRESHOLD`
 - `GOMMIT_PER_FILE_LIMIT`
 - `GOMMIT_MAX_PROMPT_CHARS`
 - `GOMMIT_OPENROUTER_REFERER`

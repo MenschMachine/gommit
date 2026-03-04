@@ -22,12 +22,3 @@ func TestBuildSinglePromptIncludesMetadata(t *testing.T) {
 	}
 }
 
-func TestBuildSplitPromptIncludesPlanInstructions(t *testing.T) {
-	promptText := BuildSplitPrompt("freeform", "staged only", "diff --git a/a b/a", nil, nil)
-	if !strings.Contains(promptText, "multi-commit plan") {
-		t.Fatalf("expected split-mode instructions")
-	}
-	if !strings.Contains(promptText, "Return ONLY JSON") {
-		t.Fatalf("expected JSON instructions")
-	}
-}

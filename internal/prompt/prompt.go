@@ -58,67 +58,7 @@ func BuildSinglePromptWithMax(style string, scope string, diff string, binaries 
 	if maxChars <= 0 {
 		return BuildSinglePrompt(style, scope, diff, binaries, truncated)
 	}
-	return buildPromptWithMax(false, style, scope, diff, binaries, truncated, maxChars)
-}
-
-func BuildSplitPrompt(style string, scope string, diff string, binaries []git.BinaryFile, truncated []string) string {
-	var b strings.Builder
-	b.WriteString("The diff is large. Propose a coherent multi-commit plan.\n")
-	b.WriteString(fmt.Sprintf("Diff scope: %s.\n", scope))
-	b.WriteString("\n")
-
-	if strings.ToLower(style) == "conventional" {
-		b.WriteString("Use Conventional Commits for each message. Format: type(scope): summary.\n")
-	} else {
-		b.WriteString("Use concise commit messages with summary line and optional body.\n")
-	}
-
-	b.WriteString("Return ONLY JSON with this shape:\n")
-	b.WriteString("{\"commits\":[{\"message\":\"...\",\"rationale\":\"...\",\"files\":[\"path\",...]}, ...]}\n")
-	b.WriteString("Rules:\n")
-	b.WriteString("- Include every changed file listed below.\n")
-	b.WriteString("- Each file must appear in exactly one commit.\n")
-	b.WriteString("- Do not invent paths.\n")
-
-	if len(truncated) > 0 {
-		sort.Strings(truncated)
-		b.WriteString("\nNote: some file diffs were truncated due to size:\n")
-		for _, path := range truncated {
-			b.WriteString("- " + path + "\n")
-		}
-	}
-
-	if len(binaries) > 0 {
-		b.WriteString("\nBinary files changed (content omitted):\n")
-		sort.Slice(binaries, func(i, j int) bool { return binaries[i].Path < binaries[j].Path })
-		for _, bf := range binaries {
-			size := "unknown"
-			if bf.Size >= 0 {
-				size = fmt.Sprintf("%d bytes", bf.Size)
-			}
-			b.WriteString(fmt.Sprintf("- %s (%s)\n", bf.Path, size))
-		}
-	}
-
-	files := collectFiles(parseDiffChunks(diff), binaries)
-	if len(files) > 0 {
-		b.WriteString("\nFiles changed (all):\n")
-		for _, file := range files {
-			b.WriteString("- " + file + "\n")
-		}
-	}
-
-	b.WriteString("\nDiff:\n")
-	b.WriteString(diff)
-	b.WriteString("\n\nReturn ONLY JSON, no code fences or extra commentary.")
-	return b.String()
-}
-
-func BuildSplitPromptWithMax(style string, scope string, diff string, binaries []git.BinaryFile, truncated []string, maxChars int) string {
-	if maxChars <= 0 {
-		return BuildSplitPrompt(style, scope, diff, binaries, truncated)
-	}
-	return buildPromptWithMax(true, style, scope, diff, binaries, truncated, maxChars)
+	return buildPromptWithMax(style, scope, diff, binaries, truncated, maxChars)
 }
 
 type diffChunk struct {
@@ -126,40 +66,21 @@ type diffChunk struct {
 	Text string
 }
 
-func buildPromptWithMax(split bool, style string, scope string, diff string, binaries []git.BinaryFile, truncated []string, maxChars int) string {
+func buildPromptWithMax(style string, scope string, diff string, binaries []git.BinaryFile, truncated []string, maxChars int) string {
 	var b strings.Builder
-	if split {
-		b.WriteString("The diff is large. Propose a coherent multi-commit plan.\n")
-	} else {
-		b.WriteString("Generate a git commit message for the following changes.\n")
-	}
+	b.WriteString("Generate a git commit message for the following changes.\n")
 	b.WriteString(fmt.Sprintf("Diff scope: %s.\n", scope))
 	b.WriteString("\n")
 
 	if strings.ToLower(style) == "conventional" {
-		if split {
-			b.WriteString("Use Conventional Commits for each message. Format: type(scope): summary.\n")
-		} else {
-			b.WriteString("Use Conventional Commits. Format: type(scope): summary. Summary <= 72 chars, imperative, no trailing period.\n")
-			b.WriteString("Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert.\n")
-			b.WriteString("Include body if useful, separated by a blank line.\n")
-		}
-	} else if split {
-		b.WriteString("Use concise commit messages with summary line and optional body.\n")
+		b.WriteString("Use Conventional Commits. Format: type(scope): summary. Summary <= 72 chars, imperative, no trailing period.\n")
+		b.WriteString("Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert.\n")
+		b.WriteString("Include body if useful, separated by a blank line.\n")
 	} else {
 		b.WriteString("Write a concise summary line (<= 72 chars) and an optional body if helpful.\n")
 	}
 
 	b.WriteString("\nNote: diff detail may be reduced to fit max_prompt_chars.\n")
-
-	if split {
-		b.WriteString("Return ONLY JSON with this shape:\n")
-		b.WriteString("{\"commits\":[{\"message\":\"...\",\"rationale\":\"...\",\"files\":[\"path\",...]}, ...]}\n")
-		b.WriteString("Rules:\n")
-		b.WriteString("- Include every changed file listed below.\n")
-		b.WriteString("- Each file must appear in exactly one commit.\n")
-		b.WriteString("- Do not invent paths.\n")
-	}
 
 	if len(truncated) > 0 {
 		sort.Strings(truncated)
@@ -193,10 +114,7 @@ func buildPromptWithMax(split bool, style string, scope string, diff string, bin
 	b.WriteString("\nDiff:\n")
 	preamble := b.String()
 
-	suffix := "\n\nReturn ONLY JSON, no code fences or extra commentary."
-	if !split {
-		suffix = "\n\nReturn only the commit message, no code fences or extra commentary."
-	}
+	suffix := "\n\nReturn only the commit message, no code fences or extra commentary."
 
 	diffBudget := maxChars - len(preamble) - len(suffix)
 	if diffBudget < 0 {
