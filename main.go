@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"io"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -38,6 +39,7 @@ func main() {
 	var configPathFlag string
 	var tagFlag string
 	var skipCI bool
+	var dryRun bool
 	var openRouterRefFlag string
 	var openRouterTitleFlag string
 
@@ -56,6 +58,7 @@ func main() {
 		fmt.Fprintln(out, "  -u, --include-unstaged   include staged + unstaged")
 		fmt.Fprintln(out, "  -A, --include-all        include staged + unstaged + untracked")
 		fmt.Fprintln(out, "  -f, --accept             auto-accept proposed result")
+		fmt.Fprintln(out, "  -n, --dry-run            generate and print commit message only")
 		fmt.Fprintln(out, "  -d, --dump-context       print LLM request JSON and exit")
 		fmt.Fprintln(out, "      --max-prompt-chars   max chars for user prompt (0 = no limit)")
 		fmt.Fprintf(out, "  -p, --provider string    llm provider (openai, openrouter, anthropic) (default: %s)\n", cfgDefaults.Provider)
@@ -76,6 +79,8 @@ func main() {
 	flag.BoolVar(&includeAll, "include-all", false, "include staged + unstaged + untracked")
 	flag.BoolVar(&autoAccept, "f", false, "auto-accept proposed result")
 	flag.BoolVar(&autoAccept, "accept", false, "auto-accept proposed result")
+	flag.BoolVar(&dryRun, "n", false, "generate and print commit message only")
+	flag.BoolVar(&dryRun, "dry-run", false, "generate and print commit message only")
 	flag.BoolVar(&dumpContext, "d", false, "print LLM request JSON and exit")
 	flag.BoolVar(&dumpContext, "dump-context", false, "print LLM request JSON and exit")
 	flag.BoolVar(&showVersion, "version", false, "show version and exit")
@@ -102,6 +107,10 @@ func main() {
 	if showVersion {
 		fmt.Println("gommit", version)
 		return
+	}
+
+	if dryRun {
+		autoAccept = true
 	}
 
 	if skipCI {
@@ -183,7 +192,12 @@ func main() {
 		scopeLabel = scopeStagedUnstaged
 	}
 
-	diffSpinner := ui.StartSpinner(os.Stderr, "Collecting diff")
+	spinnerOut := io.Writer(os.Stderr)
+	if dryRun {
+		spinnerOut = io.Discard
+	}
+
+	diffSpinner := ui.StartSpinner(spinnerOut, "Collecting diff")
 	result, err := git.CollectDiff(root, scope, cfg.PerFileLimit)
 	diffSpinner.Stop()
 	if err != nil {
@@ -219,7 +233,7 @@ func main() {
 			dumpLLMContext(client, prompt.SystemPrompt(), singlePrompt)
 			return
 		}
-		msgSpinner := ui.StartSpinner(os.Stderr, "Generating commit message")
+		msgSpinner := ui.StartSpinner(spinnerOut, "Generating commit message")
 		message, err := client.ChatCompletion(ctx, prompt.SystemPrompt(), singlePrompt)
 		msgSpinner.Stop()
 		if err != nil {
@@ -229,6 +243,12 @@ func main() {
 		// Clear refinement hint after use
 		refinementHint = ""
 		message = appendTag(message, tagFlag)
+
+		if dryRun {
+			fmt.Print(message)
+			return
+		}
+
 		fmt.Println("Proposed commit message:")
 		fmt.Println("---")
 		fmt.Println(message)
