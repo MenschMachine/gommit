@@ -217,7 +217,7 @@ func main() {
 			headers["X-Title"] = cfg.OpenRouterTitle
 		}
 	}
-	client := llm.NewClient(cfg.BaseURL, apiKey, cfg.Model, headers)
+	client := llm.NewClient(cfg.BaseURL, apiKey, cfg.Model, headers, cfg.Timeout)
 	ctx := context.Background()
 
 	var refinementHint string

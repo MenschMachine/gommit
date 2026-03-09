@@ -18,14 +18,17 @@ type Client struct {
 	HTTP    *http.Client
 }
 
-func NewClient(baseURL, apiKey, model string, headers map[string]string) *Client {
+func NewClient(baseURL, apiKey, model string, headers map[string]string, timeoutSeconds int) *Client {
+	if timeoutSeconds <= 0 {
+		timeoutSeconds = 120
+	}
 	return &Client{
 		BaseURL: strings.TrimRight(baseURL, "/"),
 		APIKey:  apiKey,
 		Model:   model,
 		Headers: headers,
 		HTTP: &http.Client{
-			Timeout: 60 * time.Second,
+			Timeout: time.Duration(timeoutSeconds) * time.Second,
 		},
 	}
 }

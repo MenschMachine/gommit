@@ -18,6 +18,7 @@ type Config struct {
 	Style           string `toml:"style"`
 	PerFileLimit    int    `toml:"per_file_limit"`
 	MaxPromptChars  int    `toml:"max_prompt_chars"`
+	Timeout         int    `toml:"timeout"`
 	OpenRouterRef   string `toml:"openrouter_referer"`
 	OpenRouterTitle string `toml:"openrouter_title"`
 }
@@ -30,6 +31,7 @@ func DefaultConfig() Config {
 		Style:           "conventional",
 		PerFileLimit:    20000,
 		MaxPromptChars:  0,
+		Timeout:         120,
 		OpenRouterRef:   "",
 		OpenRouterTitle: "",
 	}
@@ -71,6 +73,7 @@ func ApplyEnvOverrides(cfg *Config) {
 	setStringEnv(&cfg.Style, "GOMMIT_STYLE")
 	setIntEnv(&cfg.PerFileLimit, "GOMMIT_PER_FILE_LIMIT")
 	setIntEnv(&cfg.MaxPromptChars, "GOMMIT_MAX_PROMPT_CHARS")
+	setIntEnv(&cfg.Timeout, "GOMMIT_TIMEOUT")
 	setStringEnv(&cfg.OpenRouterRef, "GOMMIT_OPENROUTER_REFERER")
 	setStringEnv(&cfg.OpenRouterTitle, "GOMMIT_OPENROUTER_TITLE")
 	setStringEnv(&cfg.OpenRouterRef, "OPENROUTER_REFERER")
