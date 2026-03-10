@@ -40,6 +40,7 @@ func main() {
 	var tagFlag string
 	var skipCI bool
 	var dryRun bool
+	var ignoreEmpty bool
 	var openRouterRefFlag string
 	var openRouterTitleFlag string
 
@@ -59,6 +60,7 @@ func main() {
 		fmt.Fprintln(out, "  -A, --include-all        include staged + unstaged + untracked")
 		fmt.Fprintln(out, "  -f, --accept             auto-accept proposed result")
 		fmt.Fprintln(out, "  -n, --dry-run            generate and print commit message only")
+		fmt.Fprintln(out, "  -I, --ignore-empty       exit 0 if no changes found")
 		fmt.Fprintln(out, "  -d, --dump-context       print LLM request JSON and exit")
 		fmt.Fprintln(out, "      --max-prompt-chars   max chars for user prompt (0 = no limit)")
 		fmt.Fprintf(out, "  -p, --provider string    llm provider (openai, openrouter, anthropic) (default: %s)\n", cfgDefaults.Provider)
@@ -81,6 +83,8 @@ func main() {
 	flag.BoolVar(&autoAccept, "accept", false, "auto-accept proposed result")
 	flag.BoolVar(&dryRun, "n", false, "generate and print commit message only")
 	flag.BoolVar(&dryRun, "dry-run", false, "generate and print commit message only")
+	flag.BoolVar(&ignoreEmpty, "I", false, "exit 0 if no changes found")
+	flag.BoolVar(&ignoreEmpty, "ignore-empty", false, "exit 0 if no changes found")
 	flag.BoolVar(&dumpContext, "d", false, "print LLM request JSON and exit")
 	flag.BoolVar(&dumpContext, "dump-context", false, "print LLM request JSON and exit")
 	flag.BoolVar(&showVersion, "version", false, "show version and exit")
@@ -204,6 +208,9 @@ func main() {
 		fatal(err.Error())
 	}
 	if strings.TrimSpace(result.Diff) == "" && len(result.Binary) == 0 {
+		if ignoreEmpty {
+			return
+		}
 		fatal("no changes found for selected diff scope")
 	}
 	changedFiles := changedFilesFromResult(result)
