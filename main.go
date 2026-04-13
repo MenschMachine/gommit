@@ -4,8 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os"
 	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -39,6 +39,7 @@ func main() {
 	var configPathFlag string
 	var tagFlag string
 	var skipCI bool
+	var noVerify bool
 	var dryRun bool
 	var ignoreEmpty bool
 	var openRouterRefFlag string
@@ -69,6 +70,7 @@ func main() {
 		fmt.Fprintf(out, "                           default: %s (openai), %s (openrouter)\n", config.DefaultBaseURL("openai"), config.DefaultBaseURL("openrouter"))
 		fmt.Fprintln(out, "  -t, --tag string         append [STRING] to commit message")
 		fmt.Fprintln(out, "  -s, --skip-ci            shortcut for --tag \"skip ci\"")
+		fmt.Fprintln(out, "      --no-verify          pass --no-verify to git commit")
 		fmt.Fprintf(out, "      --style string       commit style (conventional or freeform) (default: %s)\n", cfgDefaults.Style)
 		fmt.Fprintf(out, "  -c, --config string      path to config file (default: %s)\n", cfgPath)
 		fmt.Fprintln(out, "  -r, --openrouter-referer string  openrouter HTTP-Referer header")
@@ -99,6 +101,7 @@ func main() {
 	flag.StringVar(&tagFlag, "tag", "", "append [STRING] to commit message")
 	flag.BoolVar(&skipCI, "s", false, "shortcut for --tag \"skip ci\"")
 	flag.BoolVar(&skipCI, "skip-ci", false, "shortcut for --tag \"skip ci\"")
+	flag.BoolVar(&noVerify, "no-verify", false, "pass --no-verify to git commit")
 	flag.StringVar(&styleFlag, "style", "", "commit style (conventional or freeform)")
 	flag.StringVar(&configPathFlag, "c", "", "path to config file")
 	flag.StringVar(&configPathFlag, "config", "", "path to config file")
@@ -268,7 +271,7 @@ func main() {
 			if strings.TrimSpace(message) == "" {
 				fatal("empty commit message")
 			}
-			if err := commitMessage(root, message, scope); err != nil {
+			if err := commitMessage(root, message, scope, noVerify); err != nil {
 				fatal(err.Error())
 			}
 			fmt.Println("Commit created.")
@@ -303,7 +306,7 @@ func main() {
 			if strings.TrimSpace(message) == "" {
 				fatal("empty commit message after edit")
 			}
-			if err := commitMessage(root, message, scope); err != nil {
+			if err := commitMessage(root, message, scope, noVerify); err != nil {
 				fatal(err.Error())
 			}
 			fmt.Println("Commit created.")
@@ -312,7 +315,7 @@ func main() {
 			if strings.TrimSpace(message) == "" {
 				fatal("empty commit message")
 			}
-			if err := commitMessage(root, message, scope); err != nil {
+			if err := commitMessage(root, message, scope, noVerify); err != nil {
 				fatal(err.Error())
 			}
 			fmt.Println("Commit created.")
@@ -333,7 +336,7 @@ func appendTag(message, tag string) string {
 	return subject
 }
 
-func commitMessage(root, message string, scope git.DiffScope) error {
+func commitMessage(root, message string, scope git.DiffScope, noVerify bool) error {
 	file, err := os.CreateTemp("", "gommit-commit-*.txt")
 	if err != nil {
 		return err
@@ -347,25 +350,32 @@ func commitMessage(root, message string, scope git.DiffScope) error {
 		return err
 	}
 
-	var cmd *exec.Cmd
-	switch scope {
-	case git.ScopeStaged:
-		cmd = exec.Command("git", "commit", "-F", filepath.Clean(file.Name()))
-	case git.ScopeStagedUnstaged:
-		cmd = exec.Command("git", "commit", "-a", "-F", filepath.Clean(file.Name()))
-	case git.ScopeAll:
+	if scope == git.ScopeAll {
 		if err := runGitCmd(root, "add", "."); err != nil {
 			return err
 		}
-		cmd = exec.Command("git", "commit", "-a", "-F", filepath.Clean(file.Name()))
-	default:
-		cmd = exec.Command("git", "commit", "-F", filepath.Clean(file.Name()))
 	}
+
+	args := buildCommitArgs(scope, filepath.Clean(file.Name()), noVerify)
+	cmd := exec.Command("git", args...)
 	cmd.Dir = root
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	return cmd.Run()
+}
+
+func buildCommitArgs(scope git.DiffScope, messageFile string, noVerify bool) []string {
+	args := []string{"commit"}
+	switch scope {
+	case git.ScopeStagedUnstaged, git.ScopeAll:
+		args = append(args, "-a")
+	}
+	if noVerify {
+		args = append(args, "--no-verify")
+	}
+	args = append(args, "-F", messageFile)
+	return args
 }
 
 func runGitCmd(root string, args ...string) error {
