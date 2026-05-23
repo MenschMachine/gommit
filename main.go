@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/MenschMachine/gommit/internal/config"
-	"github.com/MenschMachine/gommit/internal/git"
-	"github.com/MenschMachine/gommit/internal/llm"
-	"github.com/MenschMachine/gommit/internal/prompt"
-	"github.com/MenschMachine/gommit/internal/ui"
+	"github.com/mlahr/gommit/internal/config"
+	"github.com/mlahr/gommit/internal/git"
+	"github.com/mlahr/gommit/internal/llm"
+	"github.com/mlahr/gommit/internal/prompt"
+	"github.com/mlahr/gommit/internal/ui"
 )
 
 var version = "dev"

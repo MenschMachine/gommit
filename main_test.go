@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/MenschMachine/gommit/internal/git"
+	"github.com/mlahr/gommit/internal/git"
 )
 
 func TestAppendTag(t *testing.T) {

@@ -29,7 +29,7 @@ go build -o gommit
 Install with Go:
 
 ```bash
-go install github.com/MenschMachine/gommit@latest
+go install github.com/mlahr/gommit@latest
 ```
 
 ## Usage
@@ -126,3 +126,7 @@ Local dry run (optional):
 ```bash
 goreleaser release --snapshot --clean
 ```
+
+## License
+
+MIT

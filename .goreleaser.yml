@@ -35,12 +35,12 @@ nfpms:
       - gommit
     formats:
       - deb
-    maintainer: "MenschMachine"
+    maintainer: "Michael Lahr"
     description: "Generate git commit messages using an OpenAI-compatible LLM."
-    homepage: "https://github.com/MenschMachine/gommit"
+    homepage: "https://github.com/mlahr/gommit"
     bindir: /usr/bin
 
 release:
   github:
-    owner: MenschMachine
+    owner: mlahr
     name: gommit

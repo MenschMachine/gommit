@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MenschMachine/gommit/internal/git"
+	"github.com/mlahr/gommit/internal/git"
 )
 
 func TestBuildSinglePromptIncludesMetadata(t *testing.T) {
@@ -21,4 +21,3 @@ func TestBuildSinglePromptIncludesMetadata(t *testing.T) {
 		t.Fatalf("expected binary file mention")
 	}
 }
-
