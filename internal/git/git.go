@@ -3,6 +3,7 @@ package git
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -20,9 +21,20 @@ func runGit(dir string, args ...string) (string, error) {
 }
 
 func runGitAllowExitCodes(dir string, allowed []int, args ...string) (string, error) {
+	return runGitAllowExitCodesWithEnv(dir, nil, allowed, args...)
+}
+
+func runGitWithEnv(dir string, env []string, args ...string) (string, error) {
+	return runGitAllowExitCodesWithEnv(dir, env, []int{0}, args...)
+}
+
+func runGitAllowExitCodesWithEnv(dir string, env []string, allowed []int, args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
 	if dir != "" {
 		cmd.Dir = dir
+	}
+	if len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
 	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

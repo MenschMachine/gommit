@@ -43,12 +43,16 @@ go install github.com/mlahr/gommit@latest
 
 # staged + unstaged + untracked
 ./gommit -A --provider openai --model gpt-4o-mini
+
+# generate a message from changes since a previous checkpoint
+./gommit -A -n --diff-base previous-autosnap-checkpoint --provider openai --model gpt-4o-mini
 ```
 
 ## Flags
 
 - `-u`, `--include-unstaged`: include staged + unstaged
 - `-A`, `--include-all`: include staged + unstaged + untracked
+- `--diff-base`: generate the commit message from changes since a rev/ref
 - `-t`, `--tag`: append `[STRING]` to the commit message
 - `-s`, `--skip-ci`: shortcut for `--tag "skip ci"`
 - `-f`, `--accept`: auto-accept proposed result (skips prompt)

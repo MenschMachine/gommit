@@ -35,6 +35,7 @@ func main() {
 	var providerFlag string
 	var modelFlag string
 	var baseURLFlag string
+	var diffBaseFlag string
 	var styleFlag string
 	var configPathFlag string
 	var tagFlag string
@@ -68,6 +69,7 @@ func main() {
 		fmt.Fprintln(out, "  -m, --model string       model name (required unless set in config/env)")
 		fmt.Fprintln(out, "  -b, --base-url string    base url for openai-compatible api")
 		fmt.Fprintf(out, "                           default: %s (openai), %s (openrouter)\n", config.DefaultBaseURL("openai"), config.DefaultBaseURL("openrouter"))
+		fmt.Fprintln(out, "      --diff-base string   generate message from changes since rev/ref")
 		fmt.Fprintln(out, "  -t, --tag string         append [STRING] to commit message")
 		fmt.Fprintln(out, "  -s, --skip-ci            shortcut for --tag \"skip ci\"")
 		fmt.Fprintln(out, "      --no-verify          pass --no-verify to git commit")
@@ -97,6 +99,7 @@ func main() {
 	flag.StringVar(&modelFlag, "model", "", "model name")
 	flag.StringVar(&baseURLFlag, "b", "", "base url for openai-compatible api")
 	flag.StringVar(&baseURLFlag, "base-url", "", "base url for openai-compatible api")
+	flag.StringVar(&diffBaseFlag, "diff-base", "", "generate message from changes since rev/ref")
 	flag.StringVar(&tagFlag, "t", "", "append [STRING] to commit message")
 	flag.StringVar(&tagFlag, "tag", "", "append [STRING] to commit message")
 	flag.BoolVar(&skipCI, "s", false, "shortcut for --tag \"skip ci\"")
@@ -205,7 +208,14 @@ func main() {
 	}
 
 	diffSpinner := ui.StartSpinner(spinnerOut, "Collecting diff")
-	result, err := git.CollectDiff(root, scope, cfg.PerFileLimit)
+	var result git.DiffResult
+	if strings.TrimSpace(diffBaseFlag) != "" {
+		diffBaseFlag = strings.TrimSpace(diffBaseFlag)
+		scopeLabel = scopeLabel + " changes since " + diffBaseFlag
+		result, err = git.CollectDiffFromBase(root, diffBaseFlag, scope, cfg.PerFileLimit)
+	} else {
+		result, err = git.CollectDiff(root, scope, cfg.PerFileLimit)
+	}
 	diffSpinner.Stop()
 	if err != nil {
 		fatal(err.Error())

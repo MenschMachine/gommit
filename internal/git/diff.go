@@ -114,11 +114,164 @@ func CollectDiff(root string, scope DiffScope, perFileLimit int) (DiffResult, er
 	}, nil
 }
 
+func CollectDiffFromBase(root, base string, scope DiffScope, perFileLimit int) (DiffResult, error) {
+	baseTree, err := resolveBaseTree(root, base)
+	if err != nil {
+		return DiffResult{}, err
+	}
+
+	var out string
+	var binary []BinaryFile
+	switch scope {
+	case ScopeStaged:
+		out, err = runGitAllowExitCodes(root, []int{0, 1}, "diff", "--cached", baseTree)
+		if err != nil {
+			return DiffResult{}, err
+		}
+		binary, err = collectBinaryFilesForDiff(root, "diff", "--cached", "--numstat", baseTree)
+		if err != nil {
+			return DiffResult{}, err
+		}
+	case ScopeStagedUnstaged:
+		tree, cleanup, err := writeTemporaryWorktreeTree(root, false)
+		if cleanup != nil {
+			defer cleanup()
+		}
+		if err != nil {
+			return DiffResult{}, err
+		}
+		out, err = runGitAllowExitCodes(root, []int{0, 1}, "diff", baseTree, tree)
+		if err != nil {
+			return DiffResult{}, err
+		}
+		binary, err = collectBinaryFilesForDiff(root, "diff", "--numstat", baseTree, tree)
+		if err != nil {
+			return DiffResult{}, err
+		}
+	case ScopeAll:
+		tree, cleanup, err := writeTemporaryWorktreeTree(root, true)
+		if cleanup != nil {
+			defer cleanup()
+		}
+		if err != nil {
+			return DiffResult{}, err
+		}
+		out, err = runGitAllowExitCodes(root, []int{0, 1}, "diff", baseTree, tree)
+		if err != nil {
+			return DiffResult{}, err
+		}
+		binary, err = collectBinaryFilesForDiff(root, "diff", "--numstat", baseTree, tree)
+		if err != nil {
+			return DiffResult{}, err
+		}
+	default:
+		return DiffResult{}, fmt.Errorf("unknown diff scope: %d", scope)
+	}
+
+	diffText, origLen, truncated := processDiff(out, perFileLimit)
+	return DiffResult{
+		Diff:             diffText,
+		Binary:           binary,
+		TruncatedFiles:   uniqueStrings(truncated),
+		TotalOriginalLen: origLen,
+	}, nil
+}
+
+func resolveBaseTree(root, base string) (string, error) {
+	base = strings.TrimSpace(base)
+	if base == "" {
+		return "", fmt.Errorf("diff base is required")
+	}
+	out, err := runGit(root, "rev-parse", "--verify", base+"^{tree}")
+	if err != nil {
+		return "", fmt.Errorf("invalid diff base %q: %w", base, err)
+	}
+	return strings.TrimSpace(out), nil
+}
+
+func writeTemporaryWorktreeTree(root string, includeUntracked bool) (string, func(), error) {
+	file, err := os.CreateTemp("", "gommit-index-*")
+	if err != nil {
+		return "", nil, err
+	}
+	indexPath := file.Name()
+	if err := file.Close(); err != nil {
+		_ = os.Remove(indexPath)
+		return "", nil, err
+	}
+	cleanup := func() {
+		_ = os.Remove(indexPath)
+	}
+
+	if err := seedTemporaryIndex(root, indexPath); err != nil {
+		cleanup()
+		return "", nil, err
+	}
+
+	env := []string{"GIT_INDEX_FILE=" + indexPath}
+	addArgs := []string{"add", "-u"}
+	if includeUntracked {
+		addArgs = []string{"add", "-A"}
+	}
+	if _, err := runGitWithEnv(root, env, addArgs...); err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	tree, err := runGitWithEnv(root, env, "write-tree")
+	if err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	return strings.TrimSpace(tree), cleanup, nil
+}
+
+func seedTemporaryIndex(root, indexPath string) error {
+	indexOut, err := runGit(root, "rev-parse", "--git-path", "index")
+	if err == nil {
+		realIndex := strings.TrimSpace(indexOut)
+		if realIndex != "" && !filepath.IsAbs(realIndex) {
+			realIndex = filepath.Join(root, realIndex)
+		}
+		if err := copyFile(realIndex, indexPath); err == nil {
+			return nil
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+	}
+	env := []string{"GIT_INDEX_FILE=" + indexPath}
+	_ = os.Remove(indexPath)
+	if _, err := runGitWithEnv(root, env, "read-tree", "HEAD"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		return err
+	}
+	return out.Close()
+}
+
 func collectBinaryFiles(root string, cached bool) ([]BinaryFile, error) {
 	args := []string{"diff", "--numstat"}
 	if cached {
 		args = append(args, "--cached")
 	}
+	return collectBinaryFilesForDiff(root, args...)
+}
+
+func collectBinaryFilesForDiff(root string, args ...string) ([]BinaryFile, error) {
 	out, err := runGitAllowExitCodes(root, []int{0, 1}, args...)
 	if err != nil {
 		return nil, err

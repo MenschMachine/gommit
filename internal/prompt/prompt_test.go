@@ -21,3 +21,11 @@ func TestBuildSinglePromptIncludesMetadata(t *testing.T) {
 		t.Fatalf("expected binary file mention")
 	}
 }
+
+func TestBuildSinglePromptIncludesIncrementalBaseGuidance(t *testing.T) {
+	promptText := BuildSinglePrompt("conventional", "staged + unstaged changes since autosnap-1", "diff --git a/a b/a", nil, nil)
+
+	if !strings.Contains(promptText, "Summarize only changes introduced since the diff base") {
+		t.Fatalf("expected incremental diff-base guidance")
+	}
+}

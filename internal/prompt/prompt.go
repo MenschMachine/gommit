@@ -18,6 +18,7 @@ func BuildSinglePrompt(style string, scope string, diff string, binaries []git.B
 	var b strings.Builder
 	b.WriteString("Generate a git commit message for the following changes.\n")
 	b.WriteString(fmt.Sprintf("Diff scope: %s.\n", scope))
+	writeIncrementalScopeInstruction(&b, scope)
 	b.WriteString("\n")
 
 	if strings.ToLower(style) == "conventional" {
@@ -70,6 +71,7 @@ func buildPromptWithMax(style string, scope string, diff string, binaries []git.
 	var b strings.Builder
 	b.WriteString("Generate a git commit message for the following changes.\n")
 	b.WriteString(fmt.Sprintf("Diff scope: %s.\n", scope))
+	writeIncrementalScopeInstruction(&b, scope)
 	b.WriteString("\n")
 
 	if strings.ToLower(style) == "conventional" {
@@ -127,6 +129,12 @@ func buildPromptWithMax(style string, scope string, diff string, binaries []git.
 		return trimToMax(promptText, maxChars)
 	}
 	return promptText
+}
+
+func writeIncrementalScopeInstruction(b *strings.Builder, scope string) {
+	if strings.Contains(strings.ToLower(scope), "changes since ") {
+		b.WriteString("Summarize only changes introduced since the diff base; do not describe older accumulated work unless necessary for context.\n")
+	}
 }
 
 func parseDiffChunks(diff string) []diffChunk {

@@ -2,6 +2,7 @@ package git
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -40,4 +41,130 @@ func TestIsBinaryFile(t *testing.T) {
 	if isBinaryFile(textPath) {
 		t.Fatalf("expected text file to not be binary")
 	}
+}
+
+func TestCollectDiffFromBaseTracksModifications(t *testing.T) {
+	repo := initTestRepo(t)
+	writeTestFile(t, repo, "file.txt", "before\n")
+	gitTest(t, repo, "add", ".")
+	gitTest(t, repo, "commit", "-m", "base")
+	base := strings.TrimSpace(gitTest(t, repo, "rev-parse", "HEAD"))
+
+	writeTestFile(t, repo, "file.txt", "after\n")
+
+	result, err := CollectDiffFromBase(repo, base, ScopeStagedUnstaged, 0)
+	if err != nil {
+		t.Fatalf("CollectDiffFromBase: %v", err)
+	}
+	if !strings.Contains(result.Diff, "+after") {
+		t.Fatalf("expected tracked modification in diff, got:\n%s", result.Diff)
+	}
+}
+
+func TestCollectDiffFromBaseIncludesUntrackedWithAll(t *testing.T) {
+	repo := initTestRepo(t)
+	writeTestFile(t, repo, "tracked.txt", "tracked\n")
+	gitTest(t, repo, "add", ".")
+	gitTest(t, repo, "commit", "-m", "base")
+	base := strings.TrimSpace(gitTest(t, repo, "rev-parse", "HEAD"))
+
+	writeTestFile(t, repo, "new.txt", "new\n")
+
+	result, err := CollectDiffFromBase(repo, base, ScopeAll, 0)
+	if err != nil {
+		t.Fatalf("CollectDiffFromBase: %v", err)
+	}
+	if !strings.Contains(result.Diff, "diff --git a/new.txt b/new.txt") || !strings.Contains(result.Diff, "+new") {
+		t.Fatalf("expected untracked file in -A diff, got:\n%s", result.Diff)
+	}
+}
+
+func TestCollectDiffFromBaseIncludesDeletedFiles(t *testing.T) {
+	repo := initTestRepo(t)
+	writeTestFile(t, repo, "deleted.txt", "delete me\n")
+	gitTest(t, repo, "add", ".")
+	gitTest(t, repo, "commit", "-m", "base")
+	base := strings.TrimSpace(gitTest(t, repo, "rev-parse", "HEAD"))
+
+	if err := os.Remove(filepath.Join(repo, "deleted.txt")); err != nil {
+		t.Fatalf("remove file: %v", err)
+	}
+
+	result, err := CollectDiffFromBase(repo, base, ScopeAll, 0)
+	if err != nil {
+		t.Fatalf("CollectDiffFromBase: %v", err)
+	}
+	if !strings.Contains(result.Diff, "deleted file mode") || !strings.Contains(result.Diff, "-delete me") {
+		t.Fatalf("expected deleted file in diff, got:\n%s", result.Diff)
+	}
+}
+
+func TestCollectDiffFromBaseReturnsEmptyWhenNoChangesSinceBase(t *testing.T) {
+	repo := initTestRepo(t)
+	writeTestFile(t, repo, "file.txt", "same\n")
+	gitTest(t, repo, "add", ".")
+	gitTest(t, repo, "commit", "-m", "base")
+	base := strings.TrimSpace(gitTest(t, repo, "rev-parse", "HEAD"))
+
+	result, err := CollectDiffFromBase(repo, base, ScopeAll, 0)
+	if err != nil {
+		t.Fatalf("CollectDiffFromBase: %v", err)
+	}
+	if strings.TrimSpace(result.Diff) != "" || len(result.Binary) != 0 {
+		t.Fatalf("expected no changes since base, got diff=%q binary=%v", result.Diff, result.Binary)
+	}
+}
+
+func TestCollectDiffFromBaseDoesNotMutateRealIndex(t *testing.T) {
+	repo := initTestRepo(t)
+	writeTestFile(t, repo, "file.txt", "base\n")
+	gitTest(t, repo, "add", ".")
+	gitTest(t, repo, "commit", "-m", "base")
+	base := strings.TrimSpace(gitTest(t, repo, "rev-parse", "HEAD"))
+
+	writeTestFile(t, repo, "file.txt", "staged\n")
+	gitTest(t, repo, "add", "file.txt")
+	writeTestFile(t, repo, "file.txt", "unstaged\n")
+	writeTestFile(t, repo, "untracked.txt", "new\n")
+	before := gitTest(t, repo, "ls-files", "--stage")
+
+	if _, err := CollectDiffFromBase(repo, base, ScopeAll, 0); err != nil {
+		t.Fatalf("CollectDiffFromBase: %v", err)
+	}
+
+	after := gitTest(t, repo, "ls-files", "--stage")
+	if before != after {
+		t.Fatalf("real index changed\nbefore:\n%s\nafter:\n%s", before, after)
+	}
+}
+
+func initTestRepo(t *testing.T) string {
+	t.Helper()
+	repo := t.TempDir()
+	gitTest(t, repo, "init")
+	gitTest(t, repo, "config", "user.email", "test@example.com")
+	gitTest(t, repo, "config", "user.name", "Test User")
+	return repo
+}
+
+func writeTestFile(t *testing.T, repo, path, contents string) {
+	t.Helper()
+	fullPath := filepath.Join(repo, path)
+	if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(fullPath, []byte(contents), 0o600); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+}
+
+func gitTest(t *testing.T, repo string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = repo
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s failed: %v\n%s", strings.Join(args, " "), err, out)
+	}
+	return string(out)
 }
