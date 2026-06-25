@@ -4,20 +4,26 @@ Generate git commit messages using an OpenAI-compatible LLM.
 
 ## Install
 
-Linux (amd64) from GitHub Releases:
+Debian-based Linux from GitHub Releases:
 
-1. Download the `gommit_*_linux_amd64.tar.gz` or `gommit_*_linux_amd64.deb` asset from the release page.
+```bash
+curl -fsSL https://raw.githubusercontent.com/mlahr/gommit/main/install.sh | bash
+```
+
+Manual install:
+
+1. Download the `gommit_*_linux_<arch>.tar.gz` or `gommit_*_linux_<arch>.deb` asset from the release page, where `<arch>` is `amd64` or `arm64`.
 2. For tar.gz:
 
 ```bash
-tar -xzf gommit_*_linux_amd64.tar.gz
+tar -xzf gommit_*_linux_<arch>.tar.gz
 sudo install -m 0755 gommit /usr/local/bin/gommit
 ```
 
 3. For .deb:
 
 ```bash
-sudo dpkg -i gommit_*_linux_amd64.deb
+sudo apt-get install ./gommit_*_linux_<arch>.deb
 ```
 
 Build from source:
@@ -131,7 +137,7 @@ post-commit diff to stdin. With `--diff-base`, that diff is `git diff
 <diff-base> <created-commit>`. Without `--diff-base`, it is the created commit's
 first-parent diff.
 
-## Release (Linux amd64 + .deb)
+## Release (Linux amd64/arm64 + .deb)
 
 Releases are built by GitHub Actions using GoReleaser on tag pushes.
 
@@ -149,6 +155,8 @@ git push origin v0.1.0
 
 - `gommit_*_linux_amd64.tar.gz`
 - `gommit_*_linux_amd64.deb`
+- `gommit_*_linux_arm64.tar.gz`
+- `gommit_*_linux_arm64.deb`
 - `checksums.txt`
 
 Local dry run (optional):
