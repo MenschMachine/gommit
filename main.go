@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -45,6 +46,8 @@ func main() {
 	var ignoreEmpty bool
 	var openRouterRefFlag string
 	var openRouterTitleFlag string
+	var noteCommandFlag string
+	var noteRefFlag string
 
 	flag.Usage = func() {
 		out := flag.CommandLine.Output()
@@ -73,6 +76,8 @@ func main() {
 		fmt.Fprintln(out, "  -t, --tag string         append [STRING] to commit message")
 		fmt.Fprintln(out, "  -s, --skip-ci            shortcut for --tag \"skip ci\"")
 		fmt.Fprintln(out, "      --no-verify          pass --no-verify to git commit")
+		fmt.Fprintln(out, "      --note-command string  shell command whose stdout is attached as a git note after commit")
+		fmt.Fprintln(out, "      --note-ref string    git notes ref for --note-command output (default: refs/notes/commits)")
 		fmt.Fprintf(out, "      --style string       commit style (conventional or freeform) (default: %s)\n", cfgDefaults.Style)
 		fmt.Fprintf(out, "  -c, --config string      path to config file (default: %s)\n", cfgPath)
 		fmt.Fprintln(out, "  -r, --openrouter-referer string  openrouter HTTP-Referer header")
@@ -105,6 +110,8 @@ func main() {
 	flag.BoolVar(&skipCI, "s", false, "shortcut for --tag \"skip ci\"")
 	flag.BoolVar(&skipCI, "skip-ci", false, "shortcut for --tag \"skip ci\"")
 	flag.BoolVar(&noVerify, "no-verify", false, "pass --no-verify to git commit")
+	flag.StringVar(&noteCommandFlag, "note-command", "", "shell command whose stdout is attached as a git note after commit")
+	flag.StringVar(&noteRefFlag, "note-ref", "refs/notes/commits", "git notes ref for --note-command output")
 	flag.StringVar(&styleFlag, "style", "", "commit style (conventional or freeform)")
 	flag.StringVar(&configPathFlag, "c", "", "path to config file")
 	flag.StringVar(&configPathFlag, "config", "", "path to config file")
@@ -113,6 +120,12 @@ func main() {
 	flag.StringVar(&openRouterTitleFlag, "T", "", "openrouter X-Title header")
 	flag.StringVar(&openRouterTitleFlag, "openrouter-title", "", "openrouter X-Title header")
 	flag.Parse()
+	noteCommandProvided := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "note-command" {
+			noteCommandProvided = true
+		}
+	})
 
 	if showVersion {
 		fmt.Println("gommit", version)
@@ -128,6 +141,17 @@ func main() {
 			fatal("--tag and --skip-ci cannot be used together")
 		}
 		tagFlag = "skip ci"
+	}
+	noteOptions := NoteOptions{
+		Command: strings.TrimSpace(noteCommandFlag),
+		Ref:     strings.TrimSpace(noteRefFlag),
+		Base:    strings.TrimSpace(diffBaseFlag),
+	}
+	if noteCommandProvided && noteOptions.Command == "" {
+		fatal("--note-command cannot be empty")
+	}
+	if noteOptions.Command != "" && noteOptions.Ref == "" {
+		fatal("--note-ref cannot be empty when --note-command is set")
 	}
 
 	cfgPath := configPathFlag
@@ -281,7 +305,11 @@ func main() {
 			if strings.TrimSpace(message) == "" {
 				fatal("empty commit message")
 			}
-			if err := commitMessage(root, message, scope, noVerify); err != nil {
+			commit, err := commitMessage(root, message, scope, noVerify)
+			if err != nil {
+				fatal(err.Error())
+			}
+			if err := attachNote(root, commit, noteOptions); err != nil {
 				fatal(err.Error())
 			}
 			fmt.Println("Commit created.")
@@ -316,7 +344,11 @@ func main() {
 			if strings.TrimSpace(message) == "" {
 				fatal("empty commit message after edit")
 			}
-			if err := commitMessage(root, message, scope, noVerify); err != nil {
+			commit, err := commitMessage(root, message, scope, noVerify)
+			if err != nil {
+				fatal(err.Error())
+			}
+			if err := attachNote(root, commit, noteOptions); err != nil {
 				fatal(err.Error())
 			}
 			fmt.Println("Commit created.")
@@ -325,7 +357,11 @@ func main() {
 			if strings.TrimSpace(message) == "" {
 				fatal("empty commit message")
 			}
-			if err := commitMessage(root, message, scope, noVerify); err != nil {
+			commit, err := commitMessage(root, message, scope, noVerify)
+			if err != nil {
+				fatal(err.Error())
+			}
+			if err := attachNote(root, commit, noteOptions); err != nil {
 				fatal(err.Error())
 			}
 			fmt.Println("Commit created.")
@@ -346,23 +382,29 @@ func appendTag(message, tag string) string {
 	return subject
 }
 
-func commitMessage(root, message string, scope git.DiffScope, noVerify bool) error {
+type NoteOptions struct {
+	Command string
+	Ref     string
+	Base    string
+}
+
+func commitMessage(root, message string, scope git.DiffScope, noVerify bool) (string, error) {
 	file, err := os.CreateTemp("", "gommit-commit-*.txt")
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer os.Remove(file.Name())
 	if _, err := file.WriteString(strings.TrimSpace(message) + "\n"); err != nil {
 		_ = file.Close()
-		return err
+		return "", err
 	}
 	if err := file.Close(); err != nil {
-		return err
+		return "", err
 	}
 
 	if scope == git.ScopeAll {
 		if err := runGitCmd(root, "add", "."); err != nil {
-			return err
+			return "", err
 		}
 	}
 
@@ -372,7 +414,10 @@ func commitMessage(root, message string, scope git.DiffScope, noVerify bool) err
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return "", err
+	}
+	return gitOutput(root, "rev-parse", "HEAD")
 }
 
 func buildCommitArgs(scope git.DiffScope, messageFile string, noVerify bool) []string {
@@ -395,6 +440,143 @@ func runGitCmd(root string, args ...string) error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	return cmd.Run()
+}
+
+func attachNote(root, commit string, opts NoteOptions) error {
+	if opts.Command == "" {
+		return nil
+	}
+	commit = strings.TrimSpace(commit)
+	if commit == "" {
+		return fmt.Errorf("cannot attach note: created commit is empty")
+	}
+
+	note, err := runNoteCommand(root, commit, opts)
+	if err != nil {
+		return fmt.Errorf("commit %s created, but note command failed: %w", commit, err)
+	}
+	if err := addGitNote(root, commit, opts.Ref, note); err != nil {
+		return fmt.Errorf("commit %s created, but attaching git note failed: %w", commit, err)
+	}
+	return nil
+}
+
+func runNoteCommand(root, commit string, opts NoteOptions) ([]byte, error) {
+	command := expandNoteCommand(opts.Command, opts.Base, commit)
+	cmd := shellCommand(command)
+	cmd.Dir = root
+
+	if noteCommandUsesStdin(opts.Command) {
+		diff, err := selectedCommitDiff(root, opts.Base, commit)
+		if err != nil {
+			return nil, err
+		}
+		cmd.Stdin = strings.NewReader(diff)
+	}
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			msg = err.Error()
+		}
+		return nil, fmt.Errorf("%s", msg)
+	}
+	return stdout.Bytes(), nil
+}
+
+func addGitNote(root, commit, noteRef string, note []byte) error {
+	file, err := os.CreateTemp("", "gommit-note-*.txt")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(file.Name())
+	if _, err := file.Write(note); err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+
+	return runGitQuiet(root, "notes", "--ref", noteRef, "add", "-f", "--allow-empty", "-F", filepath.Clean(file.Name()), commit)
+}
+
+func expandNoteCommand(command, base, commit string) string {
+	command = strings.ReplaceAll(command, "{base}", shellQuote(base))
+	return strings.ReplaceAll(command, "{commit}", shellQuote(commit))
+}
+
+func noteCommandUsesStdin(command string) bool {
+	return !strings.Contains(command, "{base}") && !strings.Contains(command, "{commit}")
+}
+
+func selectedCommitDiff(root, base, commit string) (string, error) {
+	base = strings.TrimSpace(base)
+	commit = strings.TrimSpace(commit)
+	if base == "" {
+		var err error
+		base, err = firstParentOrEmptyTree(root, commit)
+		if err != nil {
+			return "", err
+		}
+	}
+	return gitOutput(root, "diff", base, commit)
+}
+
+func firstParentOrEmptyTree(root, commit string) (string, error) {
+	parent, err := gitOutput(root, "rev-parse", commit+"^")
+	if err == nil {
+		return parent, nil
+	}
+	return gitOutput(root, "hash-object", "-t", "tree", "/dev/null")
+}
+
+func gitOutput(root string, args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = root
+	out, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			msg := strings.TrimSpace(string(exitErr.Stderr))
+			if msg != "" {
+				return "", fmt.Errorf("git %s failed: %s", strings.Join(args, " "), msg)
+			}
+		}
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+func runGitQuiet(root string, args ...string) error {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = root
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		if msg == "" {
+			msg = err.Error()
+		}
+		return fmt.Errorf("git %s failed: %s", strings.Join(args, " "), msg)
+	}
+	return nil
+}
+
+func shellCommand(command string) *exec.Cmd {
+	shell := strings.TrimSpace(os.Getenv("SHELL"))
+	if shell == "" {
+		shell = "/bin/sh"
+	}
+	return exec.Command(shell, "-c", command)
+}
+
+func shellQuote(value string) string {
+	if value == "" {
+		return "''"
+	}
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
 func changedFilesFromResult(result git.DiffResult) []string {

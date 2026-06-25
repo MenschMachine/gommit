@@ -46,6 +46,11 @@ go install github.com/mlahr/gommit@latest
 
 # generate a message from changes since a previous checkpoint
 ./gommit -A -n --diff-base previous-autosnap-checkpoint --provider openai --model gpt-4o-mini
+
+# attach tool output as a git note on the created commit
+./gommit -A --diff-base previous-autosnap-checkpoint \
+  --note-command 'diffcog --delta-totals {base} {commit}' \
+  --provider openai --model gpt-4o-mini
 ```
 
 ## Flags
@@ -56,6 +61,8 @@ go install github.com/mlahr/gommit@latest
 - `-t`, `--tag`: append `[STRING]` to the commit message
 - `-s`, `--skip-ci`: shortcut for `--tag "skip ci"`
 - `-f`, `--accept`: auto-accept proposed result (skips prompt)
+- `--note-command`: shell command whose stdout is attached as a git note after commit
+- `--note-ref`: git notes ref for `--note-command` output (default: `refs/notes/commits`)
 - `-d`, `--dump-context`: print LLM request JSON and exit
 - `--max-prompt-chars`: max chars for user prompt (0 = no limit)
 - `-p`, `--provider`: `openai`, `openrouter`, `anthropic`
@@ -104,6 +111,25 @@ Config overrides:
 - `GOMMIT_OPENROUTER_TITLE`
 - `OPENROUTER_REFERER`
 - `OPENROUTER_TITLE`
+
+## Git Notes
+
+`--note-command` runs after a commit is created. Its stdout is written to a
+git note on the new commit, overwriting any existing note in the selected notes
+ref.
+
+The command is evaluated by your shell. Use `{base}` and `{commit}` placeholders
+to receive the `--diff-base` value and the created commit SHA:
+
+```bash
+gommit -A --diff-base previous-autosnap-checkpoint \
+  --note-command 'diffcog --delta-totals {base} {commit}'
+```
+
+If the command contains neither placeholder, `gommit` pipes the selected
+post-commit diff to stdin. With `--diff-base`, that diff is `git diff
+<diff-base> <created-commit>`. Without `--diff-base`, it is the created commit's
+first-parent diff.
 
 ## Release (Linux amd64 + .deb)
 
