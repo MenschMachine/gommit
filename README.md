@@ -92,9 +92,14 @@ base_url = "https://api.openai.com/v1"
 style = "conventional"
 per_file_limit = 20000
 max_prompt_chars = 0
+clean_output = true
 openrouter_referer = "https://example.com"
 openrouter_title = "gommit"
 ```
+
+When `clean_output = true`, gommit strips common LLM preamble and postamble
+(e.g., "Here is the commit message:", trailing explanations) from the response.
+Useful with cheaper models that tend to wrap the commit message in conversational text.
 
 ## Environment Variables
 
@@ -113,6 +118,7 @@ Config overrides:
 - `GOMMIT_STYLE`
 - `GOMMIT_PER_FILE_LIMIT`
 - `GOMMIT_MAX_PROMPT_CHARS`
+- `GOMMIT_CLEAN_OUTPUT`
 - `GOMMIT_OPENROUTER_REFERER`
 - `GOMMIT_OPENROUTER_TITLE`
 - `OPENROUTER_REFERER`

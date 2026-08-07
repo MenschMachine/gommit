@@ -18,6 +18,7 @@ type Config struct {
 	Style           string `toml:"style"`
 	PerFileLimit    int    `toml:"per_file_limit"`
 	MaxPromptChars  int    `toml:"max_prompt_chars"`
+	CleanOutput     bool   `toml:"clean_output"`
 	Timeout         int    `toml:"timeout"`
 	OpenRouterRef   string `toml:"openrouter_referer"`
 	OpenRouterTitle string `toml:"openrouter_title"`
@@ -31,6 +32,7 @@ func DefaultConfig() Config {
 		Style:           "conventional",
 		PerFileLimit:    20000,
 		MaxPromptChars:  0,
+		CleanOutput:     false,
 		Timeout:         120,
 		OpenRouterRef:   "",
 		OpenRouterTitle: "",
@@ -73,6 +75,7 @@ func ApplyEnvOverrides(cfg *Config) {
 	setStringEnv(&cfg.Style, "GOMMIT_STYLE")
 	setIntEnv(&cfg.PerFileLimit, "GOMMIT_PER_FILE_LIMIT")
 	setIntEnv(&cfg.MaxPromptChars, "GOMMIT_MAX_PROMPT_CHARS")
+	setBoolEnv(&cfg.CleanOutput, "GOMMIT_CLEAN_OUTPUT")
 	setIntEnv(&cfg.Timeout, "GOMMIT_TIMEOUT")
 	setStringEnv(&cfg.OpenRouterRef, "GOMMIT_OPENROUTER_REFERER")
 	setStringEnv(&cfg.OpenRouterTitle, "GOMMIT_OPENROUTER_TITLE")
@@ -97,6 +100,14 @@ func setIntEnv(target *int, key string) {
 		return
 	}
 	*target = parsed
+}
+
+func setBoolEnv(target *bool, key string) {
+	val := strings.TrimSpace(os.Getenv(key))
+	if val == "" {
+		return
+	}
+	*target = strings.EqualFold(val, "true") || val == "1"
 }
 
 func ResolveAPIKey(provider string) (string, error) {

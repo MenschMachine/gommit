@@ -283,6 +283,9 @@ func main() {
 		if err != nil {
 			fatal(err.Error())
 		}
+		if cfg.CleanOutput {
+			message = prompt.CleanResponse(message)
+		}
 
 		// Clear refinement hint after use
 		refinementHint = ""
