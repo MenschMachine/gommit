@@ -89,14 +89,49 @@ func TestCleanResponse(t *testing.T) {
 			want: "feat: add user login",
 		},
 		{
-			name: "postamble after blank line",
+			name: "postamble this commit stripped",
 			in:   "feat: add user login\n\nThis commit introduces authentication.",
 			want: "feat: add user login",
 		},
 		{
-			name: "postamble explanation",
-			in:   "feat: add user login\n\nThe changes include:\n- Added login endpoint\n- Added session handling",
+			name: "postamble this change stripped",
+			in:   "feat: add user login\n\nThis change adds the login endpoint.",
 			want: "feat: add user login",
+		},
+		{
+			name: "postamble the changes stripped",
+			in:   "feat: add user login\n\nThe changes include:\n- Added login endpoint\n- Added session handling",
+			want: "feat: add user login\n- Added login endpoint\n- Added session handling",
+		},
+		{
+			name: "postamble i chose stripped",
+			in:   "feat: add user login\n\nI chose this approach because it's simpler.",
+			want: "feat: add user login",
+		},
+		{
+			name: "postamble note stripped",
+			in:   "feat: add user login\n\nNote: this is a breaking change.",
+			want: "feat: add user login",
+		},
+		{
+			name: "postamble summary stripped",
+			in:   "feat: add user login\n\nSummary: added login.",
+			want: "feat: add user login",
+		},
+		{
+			name: "postamble key changes stripped",
+			in:   "feat: add user login\n\nKey changes:\n- Added endpoint",
+			want: "feat: add user login\n- Added endpoint",
+		},
+		{
+			name: "postamble question stripped",
+			in:   "feat: add user login\n\nWould you like me to add tests?",
+			want: "feat: add user login",
+		},
+		{
+			name: "body preserved not filler",
+			in:   "feat: add login\n\nAdd OAuth2 login flow with Google and GitHub providers.",
+			want: "feat: add login\n\nAdd OAuth2 login flow with Google and GitHub providers.",
 		},
 		{
 			name: "preamble and postamble together",
@@ -147,11 +182,6 @@ func TestCleanResponse(t *testing.T) {
 			name: "freeform message with preamble",
 			in:   "Here is the commit message:\nUpdate the README with installation instructions",
 			want: "Update the README with installation instructions",
-		},
-		{
-			name: "conventional commit with body in blank line",
-			in:   "feat: add login\n\nAdd OAuth2 login flow with Google and GitHub providers.",
-			want: "feat: add login",
 		},
 		{
 			name: "preamble with backtick-wrapped message",
