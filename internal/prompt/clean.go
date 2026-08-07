@@ -10,19 +10,17 @@ var codeFenceRe = regexp.MustCompile("(?s)`{3}\\w*\\s*\\n(.*?)\\n\\s*`{3}")
 var preambleLineRe = regexp.MustCompile(`(?i)^(.*\b(?:commit|message)\b[^:]*)\s*:\s*`)
 
 var postambleFillerRe = regexp.MustCompile(`(?i)^\s*(?:` +
-	`i\s+(?:chose|used|decided|selected)\s|` +
+	`i\s|` +
 	`the\s+reason\s+for\s|` +
 	`this\s+is\s+because\s|` +
 	`the\s+purpose\s+of\s|` +
-	`this\s+commit\s|` +
-	`this\s+change\s|` +
-	`the\s+changes\s|` +
 	`note\s*:|note\s+that\s|please\s+note\s|` +
 	`summary\s*:|in\s+summary,?\s|` +
-	`key\s+(?:changes|modifications)\s*:|` +
 	`would\s+you\s+like\s|` +
-	`let\s+me\s+know\b|` +
-	`feel\s+free\s+to\s` +
+	`let\s+me\s|` +
+	`if\s+you\s|` +
+	`feel\s+free\s+to\s|` +
+	`\?` +
 	`)`)
 
 // CleanResponse strips common LLM preamble, postamble filler, and code fences

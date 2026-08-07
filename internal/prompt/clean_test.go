@@ -89,23 +89,28 @@ func TestCleanResponse(t *testing.T) {
 			want: "feat: add user login",
 		},
 		{
-			name: "postamble this commit stripped",
+			name: "postamble this commit preserved",
 			in:   "feat: add user login\n\nThis commit introduces authentication.",
-			want: "feat: add user login",
+			want: "feat: add user login\n\nThis commit introduces authentication.",
 		},
 		{
-			name: "postamble this change stripped",
+			name: "postamble this change preserved",
 			in:   "feat: add user login\n\nThis change adds the login endpoint.",
-			want: "feat: add user login",
+			want: "feat: add user login\n\nThis change adds the login endpoint.",
 		},
 		{
-			name: "postamble the changes stripped",
+			name: "postamble the changes preserved",
 			in:   "feat: add user login\n\nThe changes include:\n- Added login endpoint\n- Added session handling",
-			want: "feat: add user login\n- Added login endpoint\n- Added session handling",
+			want: "feat: add user login\n\nThe changes include:\n- Added login endpoint\n- Added session handling",
 		},
 		{
 			name: "postamble i chose stripped",
 			in:   "feat: add user login\n\nI chose this approach because it's simpler.",
+			want: "feat: add user login",
+		},
+		{
+			name: "postamble i think stripped",
+			in:   "feat: add user login\n\nI think we should also update the docs.",
 			want: "feat: add user login",
 		},
 		{
@@ -119,9 +124,19 @@ func TestCleanResponse(t *testing.T) {
 			want: "feat: add user login",
 		},
 		{
-			name: "postamble key changes stripped",
-			in:   "feat: add user login\n\nKey changes:\n- Added endpoint",
-			want: "feat: add user login\n- Added endpoint",
+			name: "postamble let me stripped",
+			in:   "feat: add user login\n\nLet me know if you need changes.",
+			want: "feat: add user login",
+		},
+		{
+			name: "postamble if you stripped",
+			in:   "feat: add user login\n\nIf you want more details, check the diff.",
+			want: "feat: add user login",
+		},
+		{
+			name: "postamble feel free stripped",
+			in:   "feat: add user login\n\nFeel free to ask if you have questions.",
+			want: "feat: add user login",
 		},
 		{
 			name: "postamble question stripped",
@@ -136,7 +151,7 @@ func TestCleanResponse(t *testing.T) {
 		{
 			name: "preamble and postamble together",
 			in:   "Here is the commit message:\nfeat: add user login\n\nThis commit introduces authentication.",
-			want: "feat: add user login",
+			want: "feat: add user login\n\nThis commit introduces authentication.",
 		},
 		{
 			name: "code fence with preamble outside",
