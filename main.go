@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mlahr/gommit/internal/config"
 	"github.com/mlahr/gommit/internal/git"
@@ -284,7 +285,9 @@ func main() {
 			fatal(err.Error())
 		}
 		if cfg.CleanOutput {
-			message = prompt.CleanResponse(message)
+			cleaned := prompt.CleanResponse(message)
+			logClean(message, cleaned)
+			message = cleaned
 		}
 
 		// Clear refinement hint after use
@@ -623,4 +626,17 @@ func dumpLLMContext(client *llm.Client, systemPrompt, userPrompt string) {
 func fatal(msg string) {
 	fmt.Fprintln(os.Stderr, "gommit:", msg)
 	os.Exit(1)
+}
+
+func logClean(raw, cleaned string) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	f, err := os.OpenFile(filepath.Join(home, ".gommit.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "--- %s\nraw:\n%s\ncleaned:\n%s\n", time.Now().Format(time.RFC3339), raw, cleaned)
 }
