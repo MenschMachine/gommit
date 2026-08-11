@@ -24,9 +24,9 @@ func BuildSinglePrompt(style string, scope string, diff string, binaries []git.B
 	if strings.ToLower(style) == "conventional" {
 		b.WriteString("Use Conventional Commits. Format: type(scope): summary. Summary <= 72 chars, imperative, no trailing period.\n")
 		b.WriteString("Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert.\n")
-		b.WriteString("Include body if useful, separated by a blank line.\n")
+		b.WriteString("Include a body if useful, separated by a blank line; the body must not exceed two lines.\n")
 	} else {
-		b.WriteString("Write a concise summary line (<= 72 chars) and an optional body if helpful.\n")
+		b.WriteString("Write a concise summary line (<= 72 chars) and an optional body if helpful; the body must not exceed two lines.\n")
 	}
 
 	if len(truncated) > 0 {
@@ -77,9 +77,9 @@ func buildPromptWithMax(style string, scope string, diff string, binaries []git.
 	if strings.ToLower(style) == "conventional" {
 		b.WriteString("Use Conventional Commits. Format: type(scope): summary. Summary <= 72 chars, imperative, no trailing period.\n")
 		b.WriteString("Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert.\n")
-		b.WriteString("Include body if useful, separated by a blank line.\n")
+		b.WriteString("Include a body if useful, separated by a blank line; the body must not exceed two lines.\n")
 	} else {
-		b.WriteString("Write a concise summary line (<= 72 chars) and an optional body if helpful.\n")
+		b.WriteString("Write a concise summary line (<= 72 chars) and an optional body if helpful; the body must not exceed two lines.\n")
 	}
 
 	b.WriteString("\nNote: diff detail may be reduced to fit max_prompt_chars.\n")
