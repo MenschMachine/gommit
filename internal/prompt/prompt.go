@@ -24,10 +24,10 @@ func BuildSinglePrompt(style string, scope string, diff string, binaries []git.B
 	if strings.ToLower(style) == "conventional" {
 		b.WriteString("Use Conventional Commits. Format: type(scope): summary. Summary <= 72 chars, imperative, no trailing period.\n")
 		b.WriteString("Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert.\n")
-		b.WriteString("Include a body if useful, separated by a blank line; the body must not exceed two lines.\n")
 	} else {
-		b.WriteString("Write a concise summary line (<= 72 chars) and an optional body if helpful; the body must not exceed two lines.\n")
+		b.WriteString("Write a concise summary line (<= 72 chars). The body is optional.\n")
 	}
+	b.WriteString("If present, separate the subject and body with exactly one blank line. The body may contain at most two non-empty physical lines. Do not wrap, continue, or add any body text beyond those two lines.\n")
 
 	if len(truncated) > 0 {
 		sort.Strings(truncated)
@@ -51,7 +51,7 @@ func BuildSinglePrompt(style string, scope string, diff string, binaries []git.B
 
 	b.WriteString("\nDiff:\n")
 	b.WriteString(diff)
-	b.WriteString("\n\nReturn only the commit message, no code fences or extra commentary.")
+	b.WriteString("\n\nBefore responding, silently verify that the output satisfies every rule above.\nReturn only the final commit message, with no code fences or extra commentary.")
 	return b.String()
 }
 
@@ -77,10 +77,10 @@ func buildPromptWithMax(style string, scope string, diff string, binaries []git.
 	if strings.ToLower(style) == "conventional" {
 		b.WriteString("Use Conventional Commits. Format: type(scope): summary. Summary <= 72 chars, imperative, no trailing period.\n")
 		b.WriteString("Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert.\n")
-		b.WriteString("Include a body if useful, separated by a blank line; the body must not exceed two lines.\n")
 	} else {
-		b.WriteString("Write a concise summary line (<= 72 chars) and an optional body if helpful; the body must not exceed two lines.\n")
+		b.WriteString("Write a concise summary line (<= 72 chars). The body is optional.\n")
 	}
+	b.WriteString("If present, separate the subject and body with exactly one blank line. The body may contain at most two non-empty physical lines. Do not wrap, continue, or add any body text beyond those two lines.\n")
 
 	b.WriteString("\nNote: diff detail may be reduced to fit max_prompt_chars.\n")
 
