@@ -43,6 +43,11 @@ func CleanResponse(raw string) string {
 				}
 				return ""
 			}
+			rest := strings.TrimSpace(lines[0][m[1]:])
+			if rest != "" {
+				s = strings.TrimSpace(rest + "\n" + lines[1])
+				break
+			}
 			s = strings.TrimSpace(lines[1])
 			continue
 		}
@@ -54,9 +59,11 @@ func CleanResponse(raw string) string {
 		s = strings.TrimSpace(m[1])
 	}
 
-	// Strip inline backtick wrapping: `message`
-	if len(s) >= 2 && s[0] == '`' && s[len(s)-1] == '`' {
-		s = strings.TrimSpace(s[1 : len(s)-1])
+	// Strip inline backtick wrapping: `message`, including trailing commentary.
+	if strings.HasPrefix(s, "`") {
+		if end := strings.IndexByte(s[1:], '`'); end >= 0 {
+			s = strings.TrimSpace(s[1 : end+1])
+		}
 	}
 
 	// Strip postamble filler lines and clean up resulting blank lines

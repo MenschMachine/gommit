@@ -208,6 +208,11 @@ func TestCleanResponse(t *testing.T) {
 			in:   "Here's a suitable commit message for the changes:\nfix: resolve memory leak",
 			want: "fix: resolve memory leak",
 		},
+		{
+			name: "inline message with trailing explanation",
+			in:   "Made it to the commit message like this:     `feat(internal): Update accretion and history metrics to version 4`\n\nThis commit message is concise, descriptive, and follows the conventional commit format. It indicates that this commit introduces a new feature.",
+			want: "feat(internal): Update accretion and history metrics to version 4",
+		},
 	}
 
 	for _, tt := range tests {
